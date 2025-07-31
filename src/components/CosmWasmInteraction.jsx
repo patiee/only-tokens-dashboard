@@ -1,9 +1,9 @@
+// src/components/CosmWasmInteraction.jsx
 import React, { useState } from 'react';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { SigningStargateClient } from '@cosmjs/stargate';
 
-const CosmWasmInteraction = () => {
+const CosmWasmInteractionKeplr = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [txHash, setTxHash] = useState('');
   const [error, setError] = useState('');
@@ -11,18 +11,33 @@ const CosmWasmInteraction = () => {
 
   // Configuration
   const rpcEndpoint = 'https://osmosis-rpc.publicnode.com:443'; 
-  const mnemonic = 'your-mnemonic-here';
-  const contractAddress = 'cosmos1...';
-  const prefix = 'cosmos';
+  const chainId = 'osmo-test-5';
+  const contractAddress = 'osmo1...'; 
+  const prefix = 'osmo'; 
 
-  // Connect to wallet
+  // Connect to Keplr wallet
   const connectWallet = async () => {
     try {
-      const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix });
-      const [{ address }] = await wallet.getAccounts();
-      const client = await SigningCosmWasmClient.connectWithSigner(rpcEndpoint, wallet);
+      // Check if cosmos is installed
+      if (!window.only || !window.only.cosmos) {
+        throw new Error('Only Tokens wallet is not installed. Please install the Only Tokens extension.');
+      }
+
+      // Enable Keplr for the specified chain
+      await window.only.cosmos.enable(chainId);
+
+      // Get the offline signer
+      const offlineSigner = window.only.cosmos.getOfflineSigner(chainId);
+
+      // Get the user's address
+      const accounts = await offlineSigner.getAccounts();
+      const address = accounts[0].address;
+
+      // Create a CosmWasm client
+      const cosmWasmClient = await SigningCosmWasmClient.connectWithSigner(rpcEndpoint, offlineSigner);
+
       setWalletAddress(address);
-      setClient(client);
+      setClient(cosmWasmClient);
       setError('');
     } catch (err) {
       setError('Failed to connect wallet: ' + err.message);
@@ -58,9 +73,13 @@ const CosmWasmInteraction = () => {
       return;
     }
     try {
-      const recipient = 'cosmos1recipientaddress'; // Replace with recipient address
-      const amount = [{ denom: 'uatom', amount: '100000' }]; // e.g., 0.1 ATOM
-      const stargateClient = await SigningStargateClient.connectWithSigner(rpcEndpoint, await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix }));
+      const recipient = 'osmo1recipientaddress'; // Replace with recipient address (Osmosis format)
+      const amount = [{ denom: 'uosmo', amount: '100000' }]; // e.g., 0.1 OSMO (Osmosis native token)
+
+      // Create a Stargate client for sending tokens
+      const offlineSigner = window.keplr.getOfflineSigner(chainId);
+      const stargateClient = await SigningStargateClient.connectWithSigner(rpcEndpoint, offlineSigner);
+
       const result = await stargateClient.sendTokens(
         walletAddress,
         recipient,
@@ -77,9 +96,9 @@ const CosmWasmInteraction = () => {
 
   return (
     <div>
-      <h2>Cosmos Interaction</h2>
+      <h2>Cosmos Interaction (Keplr)</h2>
       <button onClick={connectWallet} disabled={walletAddress}>
-        {walletAddress ? `Connected: ${walletAddress.slice(0, 10)}...` : 'Connect Wallet'}
+        {walletAddress ? `Connected: ${walletAddress.slice(0, 10)}...` : 'Connect Keplr Wallet'}
       </button>
       <div>
         <h3>Smart Contract</h3>
@@ -90,7 +109,7 @@ const CosmWasmInteraction = () => {
       <div>
         <h3>Send Transaction</h3>
         <button onClick={sendTransaction} disabled={!walletAddress}>
-          Send 0.1 ATOM
+          Send 0.1 OSMO
         </button>
       </div>
       {txHash && <p>Transaction Hash: {txHash}</p>}
@@ -99,4 +118,4 @@ const CosmWasmInteraction = () => {
   );
 };
 
-export default CosmWasmInteraction;
+export default CosmWasmInteractionKeplr;
