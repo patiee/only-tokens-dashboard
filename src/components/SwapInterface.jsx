@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './SwapInterface.css';
+import { executeOsmosisToPolygonSwap } from '../order/crossChainOrder.js';
 
 const SwapInterface = () => {
     const [fromNetwork, setFromNetwork] = useState('osmosis');
@@ -7,15 +8,64 @@ const SwapInterface = () => {
     const [amount, setAmount] = useState('');
     const [showFromDropdown, setShowFromDropdown] = useState(false);
     const [showToDropdown, setShowToDropdown] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [swapStatus, setSwapStatus] = useState('');
 
     const networks = [
         { value: 'osmosis', label: 'Osmosis' },
         { value: 'polygon', label: 'Polygon' }
     ];
 
-    const handleSwap = () => {
-        console.log('Swap initiated:', { fromNetwork, toNetwork, amount });
-        // Add swap logic here
+    // Token addresses for the swap
+    const TOKENS = {
+        OSMOSIS: {
+            USDC: '0x...', // Replace with actual Osmosis USDC address
+            OSMO: '0x...', // Replace with actual Osmosis OSMO address
+        },
+        POLYGON: {
+            USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', // USDC on Polygon
+            MATIC: '0x0000000000000000000000000000000000001010', // MATIC on Polygon
+        }
+    };
+
+    const handleSwap = async () => {
+        if (!amount || fromNetwork === toNetwork) {
+            setSwapStatus('Please enter a valid amount and select different networks');
+            return;
+        }
+
+        setIsLoading(true);
+        setSwapStatus('Initiating cross-chain swap...');
+
+        try {
+            // Convert amount to smallest unit (assuming 6 decimals for USDC)
+            const amountInSmallestUnit = (parseFloat(amount) * 1000000).toString();
+
+            // Get token addresses based on selection
+            const srcTokenAddress = fromNetwork === 'osmosis' ? TOKENS.OSMOSIS.USDC : TOKENS.POLYGON.USDC;
+            const dstTokenAddress = toNetwork === 'osmosis' ? TOKENS.OSMOSIS.USDC : TOKENS.POLYGON.USDC;
+
+            // For now, we'll use a placeholder wallet address
+            const walletAddress = '0x...'; // Replace with actual wallet address
+
+            setSwapStatus('Creating cross-chain order...');
+
+            const result = await executeOsmosisToPolygonSwap(
+                amountInSmallestUnit,
+                srcTokenAddress,
+                dstTokenAddress,
+                walletAddress
+            );
+
+            setSwapStatus(`Swap completed! Order Hash: ${result.orderHash}`);
+            console.log('Cross-chain swap result:', result);
+
+        } catch (error) {
+            console.error('Swap failed:', error);
+            setSwapStatus(`Swap failed: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const CustomSelect = ({ value, onChange, options, placeholder, isOpen, setIsOpen }) => (
@@ -89,10 +139,16 @@ const SwapInterface = () => {
                 <button
                     onClick={handleSwap}
                     className="swap-button"
-                    disabled={!amount || fromNetwork === toNetwork}
+                    disabled={!amount || fromNetwork === toNetwork || isLoading}
                 >
-                    Swap
+                    {isLoading ? 'Processing...' : 'Swap'}
                 </button>
+
+                {swapStatus && (
+                    <div className="swap-status">
+                        {swapStatus}
+                    </div>
+                )}
             </div>
         </div>
     );

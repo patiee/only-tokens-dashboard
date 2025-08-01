@@ -204,6 +204,23 @@
     opacity: 0.6;
 }
 
+.swap-status {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid #e5e7eb;
+    color: #374151;
+    word-break: break-word;
+}
+
+.swap-status:empty {
+    display: none;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .swap-card {
