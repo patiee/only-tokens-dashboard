@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' chrome-extension: blob:; script-src-elem 'self' 'unsafe-inline' chrome-extension: blob:; style-src 'self' 'unsafe-inline' chrome-extension:; style-src-elem 'self' 'unsafe-inline' chrome-extension:; connect-src 'self' https://osmosis-rpc.publicnode.com:443; object-src 'none';">
+    <title>Extension Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Only Tokens Extension Test</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="checkExtension()">Check Extension</button>
+    <button onclick="tryConnect()">Try Connect</button>
+    <button onclick="debugInfo()">Debug Info</button>
+    
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function checkExtension() {
+            console.log('=== Extension Check ===');
+            console.log('Window object available:', typeof window !== 'undefined');
+            console.log('window.only available:', !!window.only);
+            console.log('window.only.cosmos available:', !!(window.only && window.only.cosmos));
+            console.log('window.chrome available:', !!window.chrome);
+            console.log('window.chrome.runtime available:', !!(window.chrome && window.chrome.runtime));
+            
+            if (window.only && window.only.cosmos) {
+                console.log('Extension methods:', Object.keys(window.only.cosmos));
+                updateStatus('✅ Extension detected and available!', 'success');
+            } else {
+                updateStatus('❌ Extension not detected', 'error');
+            }
+        }
+        
+        async function tryConnect() {
+            try {
+                if (!window.only || !window.only.cosmos) {
+                    updateStatus('❌ Extension not available', 'error');
+                    return;
+                }
+                
+                updateStatus('🔄 Attempting to connect...', 'warning');
+                
+                // Try to enable the extension
+                await window.only.cosmos.enable('osmo-test-5');
+                updateStatus('✅ Extension enabled successfully!', 'success');
+                
+                // Try to get accounts
+                const offlineSigner = window.only.cosmos.getOfflineSigner('osmo-test-5');
+                const accounts = await offlineSigner.getAccounts();
+                
+                if (accounts && accounts.length > 0) {
+                    updateStatus(`✅ Connected! Address: ${accounts[0].address}`, 'success');
+                } else {
+                    updateStatus('⚠️ Connected but no accounts found', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus(`❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function debugInfo() {
+            console.log('=== Debug Information ===');
+            
+            // Check for injected scripts
+            const scripts = document.querySelectorAll('script');
+            const extensionScripts = Array.from(scripts).filter(script => 
+                script.src && (script.src.includes('chrome-extension') || script.src.includes('extension'))
+            );
+            console.log('Extension scripts found:', extensionScripts.length);
+            extensionScripts.forEach((script, index) => {
+                console.log(`Script ${index}:`, script.src);
+            });
+            
+            // Check for any global objects that might be from extensions
+            const globalObjects = Object.keys(window).filter(key => 
+                key.includes('only') || key.includes('cosmos') || key.includes('extension')
+            );
+            console.log('Relevant global objects:', globalObjects);
+            
+            updateStatus('🔍 Debug info logged to console', 'info');
+        }
+        
+        // Auto-check on page load
+        window.addEventListener('load', () => {
+            setTimeout(checkExtension, 1000);
+        });
+    </script>
+</body>
+</html> 
