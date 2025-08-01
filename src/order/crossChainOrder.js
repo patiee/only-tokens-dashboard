@@ -9,11 +9,12 @@ import {
 import Web3 from 'web3';
 import { randomBytes } from 'node:crypto';
 
-// Configuration
-const privateKey = '0x'; // Replace with your private key
-const rpc = 'https://ethereum-rpc.publicnode.com';
-const authKey = 'auth-key'; // Replace with your 1inch API key
-const source = 'only-tokens-dashboard';
+import 'dotenv/config';
+
+const privateKey = process.env.PRIVATE_KEY;
+const rpc = process.env.POLYGON_RPC;
+const authKey = process.env.AUTH_KEY; // Replace with your 1inch API key
+const source = process.env.SOURCE || 'only-tokens-dashboard';
 
 // Initialize Web3 and SDK
 const web3 = new Web3(rpc);
@@ -33,12 +34,12 @@ async function sleep(ms) {
 // Token addresses for Osmosis and Polygon
 const TOKENS = {
     OSMOSIS: {
-        USDC: '0x...', // Replace with actual Osmosis USDC address
-        OSMO: '0x...', // Replace with actual Osmosis OSMO address
+        USDC: '0x...',
+        OSMO: '0x...',
     },
     POLYGON: {
-        USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', // USDC on Polygon
-        MATIC: '0x0000000000000000000000000000000000001010', // MATIC on Polygon
+        USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
+        MATIC: '0x0000000000000000000000000000000000001010',
     }
 };
 
@@ -50,7 +51,7 @@ const TOKENS = {
  * @param {string} walletAddress - User's wallet address
  * @returns {Promise<Object>} Order details
  */
-export async function createOsmosisToPolygonOrder(amount, srcTokenAddress, dstTokenAddress, walletAddress) {
+export async function createOsmosisToPolygonOrder(srcChainId, dstChainId, amount, srcTokenAddress, dstTokenAddress, walletAddress) {
     try {
         console.log('Creating cross-chain order from Osmosis to Polygon...');
         console.log('Parameters:', { amount, srcTokenAddress, dstTokenAddress, walletAddress });
@@ -58,8 +59,8 @@ export async function createOsmosisToPolygonOrder(amount, srcTokenAddress, dstTo
         // Get quote for the swap
         const quote = await sdk.getQuote({
             amount: amount,
-            srcChainId: NetworkEnum.OSMOSIS, // Assuming OSMOSIS is defined in NetworkEnum
-            dstChainId: NetworkEnum.POLYGON,
+            srcChainId: srcChainId,
+            dstChainId: dstChainId,
             enableEstimate: true,
             srcTokenAddress: srcTokenAddress,
             dstTokenAddress: dstTokenAddress,

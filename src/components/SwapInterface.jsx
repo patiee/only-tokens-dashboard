@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './SwapInterface.css';
 import { executeOsmosisToPolygonSwap } from '../order/crossChainOrder.js';
+import { NetworkEnum } from '@1inch/cross-chain-sdk';
 
 const SwapInterface = () => {
     const [fromNetwork, setFromNetwork] = useState('osmosis');
@@ -12,19 +13,21 @@ const SwapInterface = () => {
     const [swapStatus, setSwapStatus] = useState('');
 
     const networks = [
-        { value: 'osmosis', label: 'Osmosis' },
-        { value: 'polygon', label: 'Polygon' }
+        { value: NetworkEnum.DOGECOIN, label: 'Dogecoin Testnet' },
+        { value: NetworkEnum.OSMOSIS, label: 'Osmosis Testnet' },
+        { value: NetworkEnum.POLYGON_AMOY, label: 'Polygon Amoy' },
+        { value: NetworkEnum.ETHEREUM_SEPOLIA, label: 'Ethereum Sepolia' }
     ];
 
     // Token addresses for the swap
     const TOKENS = {
         OSMOSIS: {
-            USDC: '0x...', // Replace with actual Osmosis USDC address
-            OSMO: '0x...', // Replace with actual Osmosis OSMO address
+            USDC: '0x...',
+            OSMO: '0x...',
         },
         POLYGON: {
-            USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', // USDC on Polygon
-            MATIC: '0x0000000000000000000000000000000000001010', // MATIC on Polygon
+            USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
+            MATIC: '0x0000000000000000000000000000000000001010',
         }
     };
 
