@@ -1,14 +1,7 @@
 // src/components/CosmWasmInteraction.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { SigningStargateClient } from '@cosmjs/stargate';
-import { 
-  isOnlyTokensExtensionAvailable, 
-  getOnlyTokensExtension, 
-  waitForExtension, 
-  debugExtensionStatus,
-  tryEstablishExtensionCommunication
-} from '../utils/extensionUtils';
 
 function CosmWasmInteraction() {
   const [walletAddress, setWalletAddress] = useState('');
@@ -20,59 +13,39 @@ function CosmWasmInteraction() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Configuration
-  const rpcEndpoint = 'https://osmosis-rpc.publicnode.com:443'; 
+  const rpcEndpoint = 'https://osmosis-rpc.publicnode.com:443';
   const chainId = 'osmo-test-5';
   const contractAddress = 'osmo1...'; // Replace with your actual contract address
 
-  // Check if the Only Tokens extension is available
-  useEffect(() => {
-    const checkExtension = async () => {
-      try {
-        // Check if we're in a browser environment
-        if (typeof window === 'undefined') {
-          setExtensionAvailable(false);
-          return;
-        }
+  const getOfflineSigner = async () => {
+    // Get the offline signer
+    const offlineSigner = await window.only.cosmos.getOfflineSigner(chainId);
+    console.log('Offline signer obtained', offlineSigner);
 
-        // Debug extension status
-        debugExtensionStatus();
+    // Get the user's address
+    const accounts = await offlineSigner.getAccounts();
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts found. Please make sure you have accounts in the Only Tokens extension.');
+    }
 
-        // Check if the extension is available
-        if (isOnlyTokensExtensionAvailable()) {
-          setExtensionAvailable(true);
-          console.log('Only Tokens extension detected');
-        } else {
-          setExtensionAvailable(false);
-          console.log('Only Tokens extension not detected');
-          
-          // Try to establish communication with the extension
-          const communicationEstablished = await tryEstablishExtensionCommunication();
-          if (communicationEstablished) {
-            setExtensionAvailable(true);
-            console.log('Only Tokens extension communication established');
-          } else {
-            // Fallback: wait for extension to become available
-            const extensionFound = await waitForExtension(3000);
-            if (extensionFound) {
-              setExtensionAvailable(true);
-              console.log('Only Tokens extension found after waiting');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error checking extension:', err);
-        setExtensionAvailable(false);
-      }
-    };
+    const address = accounts[0].address;
+    console.log('Connected address:', address);
 
-    // Check immediately
-    checkExtension();
-  }, []);
+    // Create a CosmWasm client
+    const cosmWasmClient = await SigningCosmWasmClient.connectWithSigner(
+      rpcEndpoint,
+      offlineSigner
+    );
+    console.log('CosmWasm client created successfully');
+
+    setWalletAddress(address);
+    setClient(cosmWasmClient);
+  }
 
   const connectWallet = async () => {
     setIsLoading(true);
     setError('');
-    
+
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') {
@@ -80,8 +53,7 @@ function CosmWasmInteraction() {
       }
 
       // Check if the extension is available
-      const extension = getOnlyTokensExtension();
-      if (!extension) {
+      if (!window.only || !window.only.cosmos) {
         throw new Error(
           'Only Tokens wallet extension is not installed or not accessible. ' +
           'Please install the Only Tokens Chrome extension and refresh the page.'
@@ -91,34 +63,13 @@ function CosmWasmInteraction() {
       console.log('Attempting to connect to Only Tokens extension...');
 
       // Enable the extension for the specified chain
-      await extension.enable(chainId);
+      await window.only.cosmos.enable(chainId);
       console.log('Extension enabled for chain:', chainId);
 
-      // Get the offline signer
-      const offlineSigner = extension.getOfflineSigner(chainId);
-      console.log('Offline signer obtained');
-
-      // Get the user's address
-      const accounts = await offlineSigner.getAccounts();
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts found. Please make sure you have accounts in the Only Tokens extension.');
-      }
-      
-      const address = accounts[0].address;
-      console.log('Connected address:', address);
-
-      // Create a CosmWasm client
-      const cosmWasmClient = await SigningCosmWasmClient.connectWithSigner(
-        rpcEndpoint, 
-        offlineSigner
-      );
-      console.log('CosmWasm client created successfully');
-
-      setWalletAddress(address);
-      setClient(cosmWasmClient);
+      await getOfflineSigner();
       setIsConnected(true);
       setExtensionAvailable(true);
-      
+
     } catch (err) {
       console.error('Error connecting wallet:', err);
       setError(`Failed to connect wallet: ${err.message}`);
@@ -134,10 +85,10 @@ function CosmWasmInteraction() {
       setError('Please connect wallet first');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
       const msg = { some_method: { param1: 'value' } }; // Replace with your contract method
       const result = await client.execute(
@@ -163,26 +114,15 @@ function CosmWasmInteraction() {
       setError('Please connect wallet first');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
       const recipient = 'osmo1recipientaddress'; // Replace with recipient address (Osmosis format)
       const amount = [{ denom: 'uosmo', amount: '100000' }]; // e.g., 0.1 OSMO
 
-      // Get the offline signer again to ensure it's still valid
-      const extension = getOnlyTokensExtension();
-      if (!extension) {
-        throw new Error('Only Tokens extension is not available');
-      }
-      const offlineSigner = extension.getOfflineSigner(chainId);
-      const stargateClient = await SigningStargateClient.connectWithSigner(
-        rpcEndpoint, 
-        offlineSigner
-      );
-
-      const result = await stargateClient.sendTokens(
+      const result = await client.sendTokens(
         walletAddress,
         recipient,
         amount,
@@ -210,21 +150,11 @@ function CosmWasmInteraction() {
   return (
     <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
       <h2>Only Tokens Dashboard</h2>
-      
-      {/* Extension Status */}
-      <div style={{ 
-        padding: '10px', 
-        marginBottom: '20px',
-        backgroundColor: extensionAvailable ? '#e8f5e8' : '#ffe8e8',
-        border: `1px solid ${extensionAvailable ? '#4caf50' : '#f44336'}`,
-        borderRadius: '4px'
-      }}>
-        <strong>Extension Status:</strong> {extensionAvailable ? 'Available' : 'Not Available'}
-      </div>
+
 
       {/* Connection Status */}
-      <div style={{ 
-        padding: '10px', 
+      <div style={{
+        padding: '10px',
         marginBottom: '20px',
         backgroundColor: isConnected ? '#e8f5e8' : '#fff3cd',
         border: `1px solid ${isConnected ? '#4caf50' : '#ffc107'}`,
@@ -241,9 +171,8 @@ function CosmWasmInteraction() {
       {/* Connect/Disconnect Button */}
       <div style={{ marginBottom: '20px' }}>
         {!isConnected ? (
-          <button 
-            onClick={connectWallet} 
-            disabled={isLoading || !extensionAvailable}
+          <button
+            onClick={connectWallet}
             style={{
               padding: '10px 20px',
               backgroundColor: extensionAvailable ? '#007bff' : '#6c757d',
@@ -256,7 +185,7 @@ function CosmWasmInteraction() {
             {isLoading ? 'Connecting...' : 'Connect Only Tokens Wallet'}
           </button>
         ) : (
-          <button 
+          <button
             onClick={disconnectWallet}
             style={{
               padding: '10px 20px',
@@ -276,8 +205,8 @@ function CosmWasmInteraction() {
       {isConnected && (
         <div style={{ marginBottom: '20px' }}>
           <h3>Smart Contract Interaction</h3>
-          <button 
-            onClick={callContract} 
+          <button
+            onClick={callContract}
             disabled={isLoading}
             style={{
               padding: '10px 20px',
@@ -298,8 +227,8 @@ function CosmWasmInteraction() {
       {isConnected && (
         <div style={{ marginBottom: '20px' }}>
           <h3>Send Transaction</h3>
-          <button 
-            onClick={sendTransaction} 
+          <button
+            onClick={sendTransaction}
             disabled={isLoading}
             style={{
               padding: '10px 20px',
@@ -317,8 +246,8 @@ function CosmWasmInteraction() {
 
       {/* Transaction Hash */}
       {txHash && (
-        <div style={{ 
-          padding: '10px', 
+        <div style={{
+          padding: '10px',
           marginBottom: '20px',
           backgroundColor: '#d4edda',
           border: '1px solid #c3e6cb',
@@ -330,8 +259,8 @@ function CosmWasmInteraction() {
 
       {/* Error Display */}
       {error && (
-        <div style={{ 
-          padding: '10px', 
+        <div style={{
+          padding: '10px',
           marginBottom: '20px',
           backgroundColor: '#f8d7da',
           border: '1px solid #f5c6cb',
@@ -344,8 +273,8 @@ function CosmWasmInteraction() {
 
       {/* Instructions */}
       {!extensionAvailable && (
-        <div style={{ 
-          padding: '15px', 
+        <div style={{
+          padding: '15px',
           marginTop: '20px',
           backgroundColor: '#fff3cd',
           border: '1px solid #ffeaa7',
@@ -359,7 +288,7 @@ function CosmWasmInteraction() {
             <li>Click "Connect Only Tokens Wallet"</li>
           </ol>
           <div style={{ marginTop: '10px' }}>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               style={{
                 padding: '8px 16px',
@@ -373,8 +302,8 @@ function CosmWasmInteraction() {
             >
               Refresh Page
             </button>
-            <a 
-              href="/test-extension.html" 
+            <a
+              href="/test-extension.html"
               target="_blank"
               style={{
                 padding: '8px 16px',
