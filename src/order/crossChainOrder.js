@@ -57,15 +57,15 @@ export async function createOsmosisToPolygonOrder(srcChainId, dstChainId, amount
         console.log('Parameters:', { amount, srcTokenAddress, dstTokenAddress, walletAddress });
 
         // Get quote for the swap
-        const quote = await sdk.getQuote({
-            amount: amount,
-            srcChainId: srcChainId,
-            dstChainId: dstChainId,
-            enableEstimate: true,
-            srcTokenAddress: srcTokenAddress,
-            dstTokenAddress: dstTokenAddress,
-            walletAddress: walletAddress
-        });
+        // const quote = await sdk.getQuote({
+        //     amount: amount,
+        //     srcChainId: srcChainId,
+        //     dstChainId: dstChainId,
+        //     enableEstimate: true,
+        //     srcTokenAddress: srcTokenAddress,
+        //     dstTokenAddress: dstTokenAddress,
+        //     walletAddress: walletAddress
+        // });
 
         console.log('Quote received:', quote);
 
