@@ -71,9 +71,12 @@ export async function createOsmosisToPolygonOrder(srcChainId, dstChainId, amount
 
         const preset = PresetEnum.fast;
 
+        // Single route for now
+        const routes = 1;
+
         // Generate secrets for the hash lock
         const secrets = Array.from({
-            length: quote.presets[preset].secretsCount
+            length: routes
         }).map(() => '0x' + randomBytes(32).toString('hex'));
 
         const hashLock = secrets.length === 1
