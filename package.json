@@ -10,25 +10,38 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@1inch/cross-chain-sdk": "^0.1.15",
+    "@1inch/cross-chain-sdk": "file:../cross-chain-sdk",
+    "@1inch/fusion-sdk": "file:../fusion-sdk",
+    "@1inch/limit-order-sdk": "file:../limit-order-sdk",
     "@cosmjs/cosmwasm-stargate": "^0.34.0",
+    "@cosmjs/crypto": "^0.34.0",
     "@cosmjs/proto-signing": "^0.34.0",
     "@cosmjs/stargate": "^0.34.0",
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "crypto-browserify": "^3.12.1",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "http-proxy": "^1.18.1",
     "http-proxy-middleware": "^3.0.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "rollup-plugin-polyfill-node": "^0.13.0",
+    "web3": "^4.16.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
     "eslint": "^9.30.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
     "vite": "^7.0.4"
   }
 }

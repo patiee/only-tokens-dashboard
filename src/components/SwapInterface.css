@@ -204,6 +204,25 @@
     opacity: 0.6;
 }
 
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.button-group .swap-button {
+    flex: 1;
+    margin-top: 0;
+}
+
+.execute-button {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+}
+
+.execute-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+}
+
 .swap-status {
     margin-top: 20px;
     padding: 16px;
