@@ -6,8 +6,8 @@ import { NetworkEnum } from '@1inch/fusion-sdk';
 console.log(NetworkEnum.DOGECOIN, NetworkEnum.OSMOSIS, NetworkEnum.POLYGON_AMOY, NetworkEnum.ETHEREUM_SEPOLIA);
 
 const SwapInterface = () => {
-    const [fromNetwork, setFromNetwork] = useState(NETWORKS.OSMOSIS);
-    const [toNetwork, setToNetwork] = useState(NETWORKS.POLYGON);
+    const [fromNetwork, setFromNetwork] = useState(NetworkEnum.OSMOSIS);
+    const [toNetwork, setToNetwork] = useState(NetworkEnum.POLYGON);
     const [fromToken, setFromToken] = useState('USDC');
     const [toToken, setToToken] = useState('USDC');
     const [amount, setAmount] = useState('');
@@ -27,41 +27,37 @@ const SwapInterface = () => {
 
     // Token addresses for the swap
     const TOKENS = {
-        OSMOSIS: {
+        [NetworkEnum.OSMOSIS]: {
             USDC: 'osmo1facacsudmmarmshj54306q8qlwyee2l369tn9c385xa8lkcz3snqrtw9ke',
             OSMO: 'uosmo',
             ATOM: 'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2',
         },
-        POLYGON: {
+        [NetworkEnum.POLYGON_AMOY]: {
             USDC: '0xA028858A023dcd285E17F745bC46f0f6eC221e79',
             MATIC: '0x0000000000000000000000000000000000001010',
         },
-        DOGECOIN: {
+        [NetworkEnum.DOGECOIN]: {
             DOGE: 'DOGE'
         }
     };
 
     // Get available tokens for a specific network
     const getAvailableTokens = (network) => {
-        if (network === NETWORKS.OSMOSIS) {
-            return [
-                { value: 'USDC', label: 'USDC' },
-                { value: 'OSMO', label: 'OSMO' },
-                { value: 'ATOM', label: 'ATOM' }
-            ];
-        } else if (network === NETWORKS.POLYGON) {
-            return [
-                { value: 'USDC', label: 'USDC' },
-                { value: 'MATIC', label: 'MATIC' },
-                { value: 'WETH', label: 'WETH' },
-                { value: 'USDT', label: 'USDT' }
-            ];
-        } else if (network === NETWORKS.DOGECOIN) {
-            return [
-                { value: 'DOGE', label: 'DOGE' },
-                { value: 'USDC', label: 'USDC' },
-                { value: 'WBTC', label: 'WBTC' }
-            ];
+        if (network === NetworkEnum.OSMOSIS) {
+            return Object.keys(TOKENS[[NetworkEnum.OSMOSIS]]).map(token => ({
+                value: token,
+                label: token
+            }));
+        } else if (network === NetworkEnum.POLYGON_AMOY) {
+            return Object.keys(TOKENS[NetworkEnum.POLYGON_AMOY]).map(token => ({
+                value: token,
+                label: token
+            }));
+        } else if (network === NetworkEnum.DOGECOIN) {
+            return Object.keys(TOKENS[NetworkEnum.DOGECOIN]).map(token => ({
+                value: token,
+                label: token
+            }));
         }
         return [];
     };
@@ -70,16 +66,26 @@ const SwapInterface = () => {
     const handleFromNetworkChange = (network) => {
         setFromNetwork(network);
         const availableTokens = getAvailableTokens(network);
-        if (availableTokens.length > 0 && !availableTokens.find(t => t.value === fromToken)) {
-            setFromToken(availableTokens[0].value);
+        if (availableTokens.length > 0) {
+            // Check if current token is available in new network
+            const isCurrentTokenAvailable = availableTokens.find(t => t.value === fromToken);
+            if (!isCurrentTokenAvailable) {
+                // If current token is not available, set to first available token
+                setFromToken(availableTokens[0].value);
+            }
         }
     };
 
     const handleToNetworkChange = (network) => {
         setToNetwork(network);
         const availableTokens = getAvailableTokens(network);
-        if (availableTokens.length > 0 && !availableTokens.find(t => t.value === toToken)) {
-            setToToken(availableTokens[0].value);
+        if (availableTokens.length > 0) {
+            // Check if current token is available in new network
+            const isCurrentTokenAvailable = availableTokens.find(t => t.value === toToken);
+            if (!isCurrentTokenAvailable) {
+                // If current token is not available, set to first available token
+                setToToken(availableTokens[0].value);
+            }
         }
     };
 
@@ -189,19 +195,19 @@ const SwapInterface = () => {
 
     // Helper function to get token address based on network
     const getTokenAddress = (network, tokenType) => {
-        if (network === NETWORKS.OSMOSIS) {
-            return TOKENS.OSMOSIS[tokenType];
-        } else if (network === NETWORKS.POLYGON) {
-            return TOKENS.POLYGON[tokenType];
-        } else if (network === NETWORKS.DOGECOIN) {
-            return TOKENS.DOGECOIN[tokenType];
+        if (network === NetworkEnum.OSMOSIS) {
+            return TOKENS[NetworkEnum.OSMOSIS][tokenType];
+        } else if (network === NetworkEnum.POLYGON_AMOY) {
+            return TOKENS[NetworkEnum.POLYGON_AMOY][tokenType];
+        } else if (network === NetworkEnum.DOGECOIN) {
+            return TOKENS[NetworkEnum.DOGECOIN][tokenType];
         }
-        return TOKENS.POLYGON[tokenType]; // Default fallback
+        return ''; // Default fallback
     };
 
     // Helper function to check if network is supported
     const isSupportedNetwork = (network) => {
-        return Object.values(NETWORKS).includes(network);
+        return networks.some(net => net.value === network);
     };
 
     const CustomSelect = ({ value, onChange, options, placeholder, isOpen, setIsOpen }) => (
