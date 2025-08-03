@@ -1,0 +1,77 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/peach/Workspaces/ethglobe/only-tokens-dashboard/contracts/HTCL.sol": {
+      "lastModificationDate": 1754205654539,
+      "contentHash": "a70495d7d0f579d4d332b30104dd99c2",
+      "sourceName": "contracts/HTCL.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "HTCL"
+      ]
+    },
+    "/Users/peach/Workspaces/ethglobe/only-tokens-dashboard/contracts/LimitOrderProtocol.sol": {
+      "lastModificationDate": 1754205654541,
+      "contentHash": "4a325bad1ce2cdcc6efdc814df59b254",
+      "sourceName": "contracts/LimitOrderProtocol.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "LimitOrderProtocol"
+      ]
+    }
+  }
+}

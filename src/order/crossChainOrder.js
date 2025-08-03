@@ -2,6 +2,8 @@ import Web3 from 'web3';
 import { randomBytes } from 'crypto';
 import { sha256 } from '@cosmjs/crypto';
 import { ripemd160 } from '@cosmjs/crypto';
+import { TOKENS } from '../config/const';
+import { NetworkEnum } from '@1inch/fusion-sdk';
 
 // Environment variables
 const privateKey = import.meta.env.VITE_PRIVATE_KEY;
@@ -11,6 +13,8 @@ const osmosisRpc = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone
 // Initialize Web3 instances
 const polygonWeb3 = new Web3(polygonRpc);
 const osmosisWeb3 = new Web3(osmosisRpc);
+
+// POLYGON FEE WMATIC: 0x8a8597175d2Ed664f03020faA75f32AbD9460467
 
 // Mock smart contract ABIs and addresses
 const MOCK_CONTRACTS = {
@@ -79,24 +83,6 @@ const MOCK_CONTRACTS = {
     }
 };
 
-// Token addresses
-const TOKENS = {
-    OSMOSIS: {
-        USDC: 'osmo1facacsudmmarmshj54306q8qlwyee2l369tn9c385xa8lkcz3snqrtw9ke',
-        OSMO: 'uosmo',
-    },
-    POLYGON: {
-        USDC: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-        MATIC: '0x0000000000000000000000000000000000001010',
-    }
-};
-
-// Network IDs
-const NETWORKS = {
-    POLYGON: 137,
-    OSMOSIS: 'osmosis-1',
-    DOGECOIN: 568
-};
 
 // Utility functions
 function generateSecret() {
@@ -216,7 +202,7 @@ async function createPolygonEscrow(tokenAddress, amount, secretHash, walletAddre
             secretHash,
             timeout,
             txHash,
-            chainId: NETWORKS.POLYGON
+            chainId: NetworkEnum.POLYGON_AMOY
         };
     } catch (error) {
         console.error('Error creating Polygon escrow:', error);
@@ -259,7 +245,7 @@ async function createOsmosisEscrow(tokenAddress, amount, secretHash, walletAddre
             secretHash,
             timeout,
             txHash,
-            chainId: NETWORKS.OSMOSIS
+            chainId: NetworkEnum.OSMOSIS
         };
     } catch (error) {
         console.error('Error creating Osmosis escrow:', error);
@@ -302,7 +288,7 @@ async function createDogecoinEscrow(tokenAddress, amount, secretHash, walletAddr
             secretHash,
             timeout,
             txHash,
-            chainId: NETWORKS.DOGECOIN
+            chainId: NetworkEnum.DOGECOIN
         };
     } catch (error) {
         console.error('Error creating Dogecoin escrow:', error);
@@ -371,20 +357,20 @@ export async function createCrossChainOrder(srcChainId, dstChainId, amount, srcT
         let resolverResult;
 
         // Create escrow based on source chain
-        if (srcChainId === NETWORKS.POLYGON) {
+        if (srcChainId === NetworkEnum.POLYGON_AMOY) {
             // Create escrow on Polygon
             escrowData = await createPolygonEscrow(srcTokenAddress, amount, secretHash, walletAddress);
 
             // Call resolver contract to deploy source escrow
             resolverResult = await callResolverContract(escrowData, secret, walletAddress);
 
-        } else if (srcChainId === NETWORKS.OSMOSIS) {
+        } else if (srcChainId === NetworkEnum.OSMOSIS) {
             // Create escrow on Osmosis
             escrowData = await createOsmosisEscrow(srcTokenAddress, amount, secretHash, walletAddress);
 
             // For Osmosis, we'll mock the resolver call
             resolverResult = await callResolverContract(escrowData, secret, walletAddress);
-        } else if (srcChainId === NETWORKS.DOGECOIN) {
+        } else if (srcChainId === NetworkEnum.DOGECOIN) {
             // Create escrow on Dogecoin
             escrowData = await createDogecoinEscrow(srcTokenAddress, amount, secretHash, walletAddress);
 
@@ -577,8 +563,8 @@ export async function getReadyToAcceptSecretFills(hash) {
 // Legacy function for backward compatibility
 export async function executeOsmosisToPolygonSwap(amount, srcTokenAddress, dstTokenAddress, walletAddress) {
     return executeCrossChainSwap(
-        NETWORKS.OSMOSIS,
-        NETWORKS.POLYGON,
+        NetworkEnum.OSMOSIS,
+        NetworkEnum.POLYGON,
         amount,
         srcTokenAddress,
         dstTokenAddress,
@@ -595,8 +581,8 @@ export async function exampleCrossChainSwap() {
 
     try {
         const result = await executeCrossChainSwap(
-            NETWORKS.OSMOSIS,
-            NETWORKS.POLYGON,
+            NetworkEnum.OSMOSIS,
+            NetworkEnum.POLYGON,
             amount,
             srcTokenAddress,
             dstTokenAddress,

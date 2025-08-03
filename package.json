@@ -2,12 +2,12 @@
   "name": "only-tokens-dashboard",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "compile": "hardhat compile"
   },
   "dependencies": {
     "@1inch/cross-chain-sdk": "file:../cross-chain-sdk",
@@ -26,7 +26,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
-    "web3": "^4.16.0"
+    "web3": "^4.16.0",
+    "@openzeppelin/contracts": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
@@ -42,6 +43,8 @@
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
   }
 }
