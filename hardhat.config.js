@@ -2,6 +2,14 @@ require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 const { NetworkEnum } = require('@1inch/fusion-sdk');
 
+// Environment variables - read once at the beginning
+const ENV_VARS = {
+    POLYGON_AMOY_RPC_URL: process.env.VITE_POLYGON_AMOY_RPC_URL,
+    SEPOLIA_RPC_URL: process.env.VITE_SEPOLIA_RPC_URL,
+    PRIVATE_KEY_1: process.env.VITE_PRIVATE_KEY_1,
+    PRIVATE_KEY_2: process.env.VITE_PRIVATE_KEY_2
+};
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
     solidity: {
@@ -22,13 +30,13 @@ module.exports = {
             url: "http://127.0.0.1:8545"
         },
         amoy: {
-            url: process.env.POLYGON_AMOY_RPC_URL,
-            accounts: [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2].filter(Boolean),
+            url: ENV_VARS.POLYGON_AMOY_RPC_URL,
+            accounts: [ENV_VARS.PRIVATE_KEY_1, ENV_VARS.PRIVATE_KEY_2].filter(Boolean),
             chainId: NetworkEnum.POLYGON_AMOY,
         },
         sepolia: {
-            url: process.env.SEPOLIA_RPC_URL,
-            accounts: [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2].filter(Boolean),
+            url: ENV_VARS.SEPOLIA_RPC_URL,
+            accounts: [ENV_VARS.PRIVATE_KEY_1, ENV_VARS.PRIVATE_KEY_2].filter(Boolean),
             chainId: NetworkEnum.ETHEREUM_SEPOLIA,
         },
     },

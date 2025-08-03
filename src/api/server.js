@@ -7,6 +7,15 @@ import path from 'path';
 import crypto from 'crypto';
 import { NetworkEnum } from '@1inch/fusion-sdk';
 
+// Environment variables - read once at the beginning
+const ENV_VARS = {
+  POLYGON_AMOY_RPC_URL: process.env.VITE_POLYGON_AMOY_RPC_URL,
+  SEPOLIA_RPC_URL: process.env.VITE_SEPOLIA_RPC_URL,
+  OSMOSIS_RPC: process.env.VITE_OSMOSIS_RPC,
+  DOGECOIN_RPC: process.env.VITE_DOGECOIN_RPC,
+  AUTH_KEY: process.env.VITE_AUTH_KEY || 'YOUR_API_KEY_HERE'
+};
+
 const app = express()
 const PORT = 3001
 
@@ -27,10 +36,10 @@ app.post('/api/rpc/:network', async (req, res) => {
 
     // Map NetworkEnum to RPC URLs
     const rpcUrls = {
-      [NetworkEnum.POLYGON_AMOY]: process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
-      [NetworkEnum.ETHEREUM_SEPOLIA]: process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
-      [NetworkEnum.OSMOSIS]: process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
-      [NetworkEnum.DOGECOIN]: process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+      [NetworkEnum.POLYGON_AMOY]: ENV_VARS.POLYGON_AMOY_RPC_URL,
+      [NetworkEnum.ETHEREUM_SEPOLIA]: ENV_VARS.SEPOLIA_RPC_URL,
+      [NetworkEnum.OSMOSIS]: ENV_VARS.OSMOSIS_RPC,
+      [NetworkEnum.DOGECOIN]: ENV_VARS.DOGECOIN_RPC
     }
 
     const rpcUrl = rpcUrls[network]
@@ -77,10 +86,10 @@ app.get('/api/gas-price/:network', async (req, res) => {
 
     // Map NetworkEnum to RPC URLs
     const rpcUrls = {
-      [NetworkEnum.POLYGON_AMOY]: process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
-      [NetworkEnum.ETHEREUM_SEPOLIA]: process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
-      [NetworkEnum.OSMOSIS]: process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
-      [NetworkEnum.DOGECOIN]: process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+      [NetworkEnum.POLYGON_AMOY]: ENV_VARS.POLYGON_AMOY_RPC_URL || 'https://polygon-rpc.com',
+      [NetworkEnum.ETHEREUM_SEPOLIA]: ENV_VARS.SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+      [NetworkEnum.OSMOSIS]: ENV_VARS.OSMOSIS_RPC,
+      [NetworkEnum.DOGECOIN]: ENV_VARS.DOGECOIN_RPC
     }
 
     const rpcUrl = rpcUrls[network]
@@ -125,16 +134,15 @@ app.get('/api/tokens/:chainId', async (req, res) => {
   try {
     const { chainId } = req.params
 
-    const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
 
-    console.log(`fetching tokens for chainId: ${chainId} ${API_KEY} ${API_BASE_URL}/token/v1.2/${chainId}?provider=1inch&country=US`)
+    console.log(`fetching tokens for chainId: ${chainId} ${ENV_VARS.AUTH_KEY} ${API_BASE_URL}/token/v1.2/${chainId}?provider=1inch&country=US`)
 
     const response = await fetch(
       `${API_BASE_URL}/token/v1.2/${chainId}?provider=1inch&country=US`,
       {
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
+          'Authorization': `Bearer ${ENV_VARS.AUTH_KEY}`,
           'content-type': 'application/json',
           'accept': 'application/json',
         },
@@ -163,7 +171,6 @@ app.get('/api/quote', async (req, res) => {
   try {
     const { srcChain, destChain, srcTokenAddress, dstTokenAddress, amount, walletAddress } = req.query
 
-    const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
 
     const response = await fetch(
@@ -178,7 +185,7 @@ app.get('/api/quote', async (req, res) => {
       `fee=1`,
       {
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
+          'Authorization': `Bearer ${ENV_VARS.AUTH_KEY}`,
           'Content-Type': 'application/json'
         }
       }
@@ -204,13 +211,12 @@ app.post('/api/swap', async (req, res) => {
   try {
     const { srcChain, destChain, srcTokenAddress, dstTokenAddress, amount, walletAddress, quoteId } = req.body
 
-    const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
 
     const response = await fetch(`${API_BASE_URL}/fusion-plus/v1.0/swap`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
+        'Authorization': `Bearer ${ENV_VARS.AUTH_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

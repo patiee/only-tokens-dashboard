@@ -17,8 +17,8 @@ const PRIVATE_KEY_1 = import.meta.env.VITE_PRIVATE_KEY_1; // Alice's private key
 const PRIVATE_KEY_2 = import.meta.env.VITE_PRIVATE_KEY_2; // Bob's private key
 const sepoliaRpc = import.meta.env.VITE_SEPOLIA_RPC_URL;
 const polygonRpc = import.meta.env.VITE_POLYGON_RPC;
-const osmosisRpc = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone';
-const dogecoinRpc = import.meta.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/';
+const osmosisRpc = import.meta.env.VITE_OSMO_RPC;
+const dogecoinRpc = import.meta.env.VITE_DOGE_RPC;
 
 // Initialize Web3 instances (for local operations only)
 const sepoliaWeb3 = new Web3(polygonRpc); // Using polygon as fallback
@@ -209,12 +209,12 @@ async function createEVMHTCL(bobAddress, timelock, hashlock, amount, privateKey,
  * @param {string} tokenType - Token type ('native' or 'cw20')
  * @returns {Promise<Object>} HTCL contract details
  */
-async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateKey, tokenType = 'native') {
+async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateKey, tokenType = 'native', tokenAddress = null) {
     try {
         console.log('Creating Cosmos HTCL contract...');
 
-        // Use API for Cosmos HTCL creation with token type
-        const result = await createHTCLContract(NetworkEnum.OSMOSIS, bobAddress, timelock, hashlock, amount, tokenType);
+        // Use API for Cosmos HTCL creation with token type and address
+        const result = await createHTCLContract(NetworkEnum.OSMOSIS, bobAddress, timelock, hashlock, amount, tokenType, tokenAddress);
 
         console.log('Cosmos HTCL created:', {
             contractAddress: result.contractAddress,
@@ -222,7 +222,7 @@ async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateK
             bobAddress,
             timelock,
             hashlock,
-            tokenType,
+            tokenType: result.tokenType,
             codeId: CONTRACT_ADDRESSES.COSMOS_CODE_ID
         });
 
@@ -459,7 +459,7 @@ export async function executeCrossChainSwapWithHTCL(
         if (getChainType(srcChainId) === 'evm') {
             aliceSourceHTCL = await createEVMHTCL(bobAddress, timelock, hashlock, amount, PRIVATE_KEY_1, srcChainId);
         } else if (getChainType(srcChainId) === 'cosmos') {
-            aliceSourceHTCL = await createCosmosHTCL(bobAddress, timelock, hashlock, amount, PRIVATE_KEY_1);
+            aliceSourceHTCL = await createCosmosHTCL(bobAddress, timelock, hashlock, amount, PRIVATE_KEY_1, 'native', srcTokenAddress);
         } else if (getChainType(srcChainId) === 'dogecoin') {
             aliceSourceHTCL = await createDogecoinHTCL(bobAddress, timelock, hashlock, amount, PRIVATE_KEY_1);
         }
@@ -470,7 +470,7 @@ export async function executeCrossChainSwapWithHTCL(
         if (getChainType(dstChainId) === 'evm') {
             bobDestHTCL = await createEVMHTCL(aliceAddress, timelock, hashlock, amount, PRIVATE_KEY_2, dstChainId);
         } else if (getChainType(dstChainId) === 'cosmos') {
-            bobDestHTCL = await createCosmosHTCL(aliceAddress, timelock, hashlock, amount, PRIVATE_KEY_2);
+            bobDestHTCL = await createCosmosHTCL(aliceAddress, timelock, hashlock, amount, PRIVATE_KEY_2, 'native', dstTokenAddress);
         } else if (getChainType(dstChainId) === 'dogecoin') {
             bobDestHTCL = await createDogecoinHTCL(aliceAddress, timelock, hashlock, amount, PRIVATE_KEY_2);
         }

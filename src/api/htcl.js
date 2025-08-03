@@ -1,5 +1,6 @@
 import { createOsmosisWallet } from '../utils/utils';
 import { DirectSecp256k1Wallet, SigningStargateClient, StargateClient } from '@cosmjs/stargate';
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Web3 } from 'web3';
 import { coins } from '@cosmjs/amino';
 import { NetworkEnum } from '@1inch/fusion-sdk';
@@ -103,7 +104,7 @@ export const sendTransaction = async (network, transaction) => {
 }
 
 // Create HTCL contract using real deployment
-export const createHTCLContract = async (network, bobAddress, timelock, hashlock, amount, tokenType = 'native') => {
+export const createHTCLContract = async (network, bobAddress, timelock, hashlock, amount, tokenType = 'native', tokenAddress = null) => {
   try {
     console.log('Creating HTCL contract via API...')
 
@@ -214,22 +215,36 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       console.log('Hashlock:', hashlock);
       console.log('Amount:', amount);
       console.log('Token type:', tokenType);
+      console.log('Token address:', tokenAddress);
+
+      // Determine token type based on token address format
+      let actualTokenType = tokenType;
+      if (tokenAddress) {
+        // Check if it's a native token (IBC or short denom)
+        if (tokenAddress.startsWith('ibc/') || tokenAddress.length < 10) {
+          actualTokenType = 'native';
+        } else {
+          // Assume it's a CW20 token (Osmosis address format)
+          actualTokenType = 'cw20';
+        }
+      }
 
       // Setup client
-      const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone';
-      const client = await SigningStargateClient.connectWithSigner(rpcUrl, wallet);
+      const rpcUrl = import.meta.env.VITE_OSMO_RPC;
+      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
 
       // Prepare instantiate message
       const instantiateMsg = {
         bob: bobAddress,
         timelock: timelock,
         hashlock: hashlock,
-        cw20: tokenType === 'cw20' ? account.address : null,
-        native: tokenType === 'native' ? amount : null
+        cw20: actualTokenType === 'cw20' ? tokenAddress : null,
+        native: actualTokenType === 'native' ? tokenAddress : null
       };
 
-      const funds = tokenType === 'native' ? coins(amount, 'uosmo') : [];
+      const funds = actualTokenType === 'native' ? coins(amount, tokenAddress) : [];
 
+      console.log('Actual token type determined:', actualTokenType);
       console.log('Instantiate message:', instantiateMsg);
       console.log('Funds:', funds);
 
@@ -256,7 +271,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         hashlock,
         amount,
         network,
-        tokenType
+        tokenType: actualTokenType
       };
     }
 
@@ -465,8 +480,8 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       console.log('Using address:', account.address);
 
       // Setup client
-      const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone';
-      const client = await SigningStargateClient.connectWithSigner(rpcUrl, wallet);
+      const rpcUrl = import.meta.env.VITE_OSMO_RPC;
+      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
 
       let executeMsg;
 

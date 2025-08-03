@@ -1,4 +1,5 @@
 import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
+import { Buffer } from 'buffer';
 
 export async function createOsmosisWallet(privateKeyHex) {
     try {
