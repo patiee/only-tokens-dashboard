@@ -19,6 +19,103 @@ app.use(express.json())
 // Add OPTIONS handler for preflight requests
 app.options('*', cors())
 
+// RPC Proxy endpoint for blockchain calls
+app.post('/api/rpc/:network', async (req, res) => {
+  try {
+    const { network } = req.params
+    const { method, params, id } = req.body
+    
+    // Map network names to RPC URLs
+    const rpcUrls = {
+      'polygon': process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
+      'sepolia': process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+      'osmosis': process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
+      'dogecoin': process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+    }
+    
+    const rpcUrl = rpcUrls[network]
+    if (!rpcUrl) {
+      return res.status(400).json({ error: `Unsupported network: ${network}` })
+    }
+    
+    console.log(`RPC call to ${network}: ${method}`)
+    
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method,
+        params: params || [],
+        id: id || 1
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return res.status(response.status).json({
+        error: `RPC call failed: ${response.status} - ${errorData.error || response.statusText}`
+      })
+    }
+    
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('RPC proxy error:', error)
+    res.status(500).json({ error: `RPC proxy error: ${error.message}` })
+  }
+})
+
+// Gas price endpoint for specific networks
+app.get('/api/gas-price/:network', async (req, res) => {
+  try {
+    const { network } = req.params
+    
+    // Map network names to RPC URLs
+    const rpcUrls = {
+      'polygon': process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
+      'sepolia': process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+      'osmosis': process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
+      'dogecoin': process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+    }
+    
+    const rpcUrl = rpcUrls[network]
+    if (!rpcUrl) {
+      return res.status(400).json({ error: `Unsupported network: ${network}` })
+    }
+    
+    console.log(`Getting gas price for ${network}`)
+    
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_gasPrice',
+        params: [],
+        id: 1
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return res.status(response.status).json({
+        error: `Gas price fetch failed: ${response.status} - ${errorData.error || response.statusText}`
+      })
+    }
+    
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('Gas price error:', error)
+    res.status(500).json({ error: `Gas price error: ${error.message}` })
+  }
+})
+
 // Proxy endpoint for getting tokens by chain ID
 app.get('/api/tokens/:chainId', async (req, res) => {
   try {

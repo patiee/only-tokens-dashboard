@@ -4,6 +4,13 @@ import { sha256 } from '@cosmjs/crypto';
 import { ripemd160 } from '@cosmjs/crypto';
 import { TOKENS } from '../config/const';
 import { NetworkEnum } from '@1inch/fusion-sdk';
+import {
+    getGasPrice,
+    createHTCLContract,
+    withdrawFromHTCL,
+    createOrder,
+    acceptOrder
+} from '../api/htcl.js';
 
 // Environment variables
 const PRIVATE_KEY_1 = import.meta.env.VITE_PRIVATE_KEY_1; // Alice's private key
@@ -13,8 +20,8 @@ const polygonRpc = import.meta.env.VITE_POLYGON_RPC;
 const osmosisRpc = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone';
 const dogecoinRpc = import.meta.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/';
 
-// Initialize Web3 instances
-const sepoliaWeb3 = new Web3(sepoliaRpc);
+// Initialize Web3 instances (for local operations only)
+const sepoliaWeb3 = new Web3(polygonRpc); // Using polygon as fallback
 const polygonWeb3 = new Web3(polygonRpc);
 const osmosisWeb3 = new Web3(osmosisRpc);
 const dogecoinWeb3 = new Web3(dogecoinRpc);
@@ -164,28 +171,28 @@ function getChainType(chainId) {
     return 'evm';
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * Get network name from chain ID
+ * @param {number} chainId - The chain ID
+ * @returns {string} The network name
+ */
+function getNetworkName(chainId) {
+    switch (chainId) {
+        case NetworkEnum.POLYGON_AMOY:
+            return 'polygon';
+        case NetworkEnum.ETHEREUM_SEPOLIA:
+            return 'sepolia';
+        case NetworkEnum.OSMOSIS:
+            return 'osmosis';
+        case NetworkEnum.DOGECOIN:
+            return 'dogecoin';
+        default:
+            return 'polygon'; // Default to polygon
+    }
 }
 
-/**
- * Get the appropriate Web3 instance based on network
- * @param {number} networkId - The network ID
- * @returns {Web3} The appropriate Web3 instance
- */
-function getWeb3Instance(networkId) {
-    switch (networkId) {
-        case NetworkEnum.POLYGON_AMOY:
-            return polygonWeb3;
-        case NetworkEnum.ETHEREUM_SEPOLIA:
-            return sepoliaWeb3;
-        case NetworkEnum.OSMOSIS:
-            return osmosisWeb3;
-        case NetworkEnum.DOGECOIN:
-            return dogecoinWeb3;
-        default:
-            return polygonWeb3; // Default to Polygon
-    }
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -202,49 +209,12 @@ async function createEVMHTCL(bobAddress, timelock, hashlock, amount, privateKey,
     try {
         console.log('Creating EVM HTCL contract...');
 
-        const web3 = getWeb3Instance(networkId);
-        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-        web3.eth.accounts.wallet.add(account);
+        const networkName = getNetworkName(networkId);
 
-        const htclContract = new web3.eth.Contract(HTCL_ABI, CONTRACT_ADDRESSES.HTCL);
+        // Use API instead of direct Web3 calls
+        const result = await createHTCLContract(networkName, bobAddress, timelock, hashlock, amount);
 
-        // Convert to BigInt
-        const timelockBigInt = BigInt(timelock);
-        const amountBigInt = BigInt(amount);
-
-        const gasEstimate = await htclContract.methods
-            .constructor(bobAddress, timelockBigInt, hashlock)
-            .estimateGas({ from: account.address, value: amountBigInt });
-
-        // Convert gasEstimate to BigInt and calculate gas with proper BigInt arithmetic
-        const gasEstimateBigInt = BigInt(gasEstimate);
-        const gasLimit = gasEstimateBigInt * BigInt(120) / BigInt(100); // 1.2 as BigInt arithmetic
-
-        const tx = await htclContract.methods
-            .constructor(bobAddress, timelockBigInt, hashlock)
-            .send({
-                from: account.address,
-                value: amountBigInt,
-                gas: gasLimit
-            });
-
-        console.log('EVM HTCL created:', {
-            contractAddress: tx.contractAddress,
-            txHash: tx.transactionHash,
-            bobAddress,
-            timelock,
-            hashlock,
-            network: networkId
-        });
-
-        return {
-            contractAddress: tx.contractAddress,
-            txHash: tx.transactionHash,
-            bobAddress,
-            timelock,
-            hashlock,
-            network: networkId
-        };
+        return result;
     } catch (error) {
         console.error('Error creating EVM HTCL:', error);
         throw error;
@@ -264,13 +234,12 @@ async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateK
     try {
         console.log('Creating Cosmos HTCL contract...');
 
-        // Mock Cosmos HTCL creation using CODE_ID
-        const contractAddress = 'osmo1' + randomBytes(20).toString('hex');
-        const txHash = '0x' + randomBytes(32).toString('hex');
+        // Use API for Cosmos HTCL creation
+        const result = await createHTCLContract('osmosis', bobAddress, timelock, hashlock, amount);
 
         console.log('Cosmos HTCL created:', {
-            contractAddress,
-            txHash,
+            contractAddress: result.contractAddress,
+            txHash: result.txHash,
             bobAddress,
             timelock,
             hashlock,
@@ -278,11 +247,7 @@ async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateK
         });
 
         return {
-            contractAddress,
-            txHash,
-            bobAddress,
-            timelock,
-            hashlock,
+            ...result,
             codeId: CONTRACT_ADDRESSES.COSMOS_CODE_ID
         };
     } catch (error) {
@@ -304,25 +269,18 @@ async function createDogecoinHTCL(bobAddress, timelock, hashlock, amount, privat
     try {
         console.log('Creating Dogecoin HTCL contract...');
 
-        // Mock Dogecoin HTCL creation
-        const contractAddress = 'D' + randomBytes(20).toString('hex');
-        const txHash = '0x' + randomBytes(32).toString('hex');
+        // Use API for Dogecoin HTCL creation
+        const result = await createHTCLContract('dogecoin', bobAddress, timelock, hashlock, amount);
 
         console.log('Dogecoin HTCL created:', {
-            contractAddress,
-            txHash,
+            contractAddress: result.contractAddress,
+            txHash: result.txHash,
             bobAddress,
             timelock,
             hashlock
         });
 
-        return {
-            contractAddress,
-            txHash,
-            bobAddress,
-            timelock,
-            hashlock
-        };
+        return result;
     } catch (error) {
         console.error('Error creating Dogecoin HTCL:', error);
         throw error;
@@ -334,50 +292,19 @@ async function createDogecoinHTCL(bobAddress, timelock, hashlock, amount, privat
  * @param {string} contractAddress - HTCL contract address
  * @param {string} secret - Secret for withdrawal
  * @param {string} privateKey - Private key for transaction
- * @param {Web3} web3 - Web3 instance
  * @param {boolean} isAlice - Whether this is Alice's withdrawal
+ * @param {number} networkId - Network ID for the correct chain
  * @returns {Promise<Object>} Withdrawal result
  */
-async function withdrawFromEVMHTCL(contractAddress, secret, privateKey, web3, isAlice = false) {
+async function withdrawFromEVMHTCL(contractAddress, secret, privateKey, isAlice = false, networkId = NetworkEnum.POLYGON_AMOY) {
     try {
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from EVM HTCL...`);
 
-        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-        web3.eth.accounts.wallet.add(account);
+        // Use API instead of direct Web3 calls
+        const networkName = getNetworkName(networkId);
+        const result = await withdrawFromHTCL(networkName, contractAddress, secret, isAlice);
 
-        const htclContract = new web3.eth.Contract(HTCL_ABI, contractAddress);
-
-        let method;
-        if (isAlice) {
-            method = htclContract.methods.aliceWithdraw();
-        } else {
-            // Convert secret to BigInt if it's a hex string
-            const secretBigInt = secret.startsWith('0x') ? BigInt(secret) : BigInt('0x' + secret);
-            method = htclContract.methods.bobWithdraw(secretBigInt);
-        }
-
-        const gasEstimate = await method.estimateGas({ from: account.address });
-
-        // Convert gasEstimate to BigInt and calculate gas with proper BigInt arithmetic
-        const gasEstimateBigInt = BigInt(gasEstimate);
-        const gasLimit = gasEstimateBigInt * BigInt(120) / BigInt(100); // 1.2 as BigInt arithmetic
-
-        const tx = await method.send({
-            from: account.address,
-            gas: gasLimit
-        });
-
-        console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from EVM HTCL:`, {
-            contractAddress,
-            txHash: tx.transactionHash,
-            secret: isAlice ? 'N/A' : secret
-        });
-
-        return {
-            contractAddress,
-            txHash: tx.transactionHash,
-            success: true
-        };
+        return result;
     } catch (error) {
         console.error(`Error withdrawing from EVM HTCL:`, error);
         throw error;
@@ -396,20 +323,16 @@ async function withdrawFromCosmosHTCL(contractAddress, secret, privateKey, isAli
     try {
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Cosmos HTCL...`);
 
-        // Mock Cosmos HTCL withdrawal
-        const txHash = '0x' + randomBytes(32).toString('hex');
+        // Use API for Cosmos HTCL withdrawal
+        const result = await withdrawFromHTCL('osmosis', contractAddress, secret, isAlice);
 
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from Cosmos HTCL:`, {
             contractAddress,
-            txHash,
+            txHash: result.txHash,
             secret: isAlice ? 'N/A' : secret
         });
 
-        return {
-            contractAddress,
-            txHash,
-            success: true
-        };
+        return result;
     } catch (error) {
         console.error(`Error withdrawing from Cosmos HTCL:`, error);
         throw error;
@@ -428,20 +351,16 @@ async function withdrawFromDogecoinHTCL(contractAddress, secret, privateKey, isA
     try {
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Dogecoin HTCL...`);
 
-        // Mock Dogecoin HTCL withdrawal
-        const txHash = '0x' + randomBytes(32).toString('hex');
+        // Use API for Dogecoin HTCL withdrawal
+        const result = await withdrawFromHTCL('dogecoin', contractAddress, secret, isAlice);
 
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from Dogecoin HTCL:`, {
             contractAddress,
-            txHash,
+            txHash: result.txHash,
             secret: isAlice ? 'N/A' : secret
         });
 
-        return {
-            contractAddress,
-            txHash,
-            success: true
-        };
+        return result;
     } catch (error) {
         console.error(`Error withdrawing from Dogecoin HTCL:`, error);
         throw error;
@@ -459,66 +378,12 @@ async function createOrderWithProtocol(orderData, privateKey, networkId = Networ
     try {
         console.log('Creating order with LimitOrderProtocol...');
 
-        const web3 = getWeb3Instance(networkId);
-        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-        web3.eth.accounts.wallet.add(account);
+        const networkName = getNetworkName(networkId);
 
-        const protocolContract = new web3.eth.Contract(
-            LIMIT_ORDER_PROTOCOL_ABI,
-            CONTRACT_ADDRESSES.LIMIT_ORDER_PROTOCOL
-        );
+        // Use API instead of direct Web3 calls
+        const result = await createOrder(networkName, orderData);
 
-        // Convert amounts to BigInt to avoid mixing types
-        const sourceAmount = BigInt(orderData.sourceAmount);
-        const destAmount = BigInt(orderData.destAmount);
-        const deadline = BigInt(orderData.deadline);
-
-        const gasEstimate = await protocolContract.methods
-            .createOrder(
-                orderData.sourceChainId,
-                orderData.destChainId,
-                orderData.sourceWalletAddress,
-                orderData.destWalletAddress,
-                orderData.sourceToken,
-                orderData.destToken,
-                sourceAmount,
-                destAmount,
-                deadline
-            )
-            .estimateGas({ from: account.address });
-
-        // Convert gasEstimate to BigInt and calculate gas with proper BigInt arithmetic
-        const gasEstimateBigInt = BigInt(gasEstimate);
-        const gasLimit = gasEstimateBigInt * BigInt(120) / BigInt(100); // 1.2 as BigInt arithmetic
-
-        const tx = await protocolContract.methods
-            .createOrder(
-                orderData.sourceChainId,
-                orderData.destChainId,
-                orderData.sourceWalletAddress,
-                orderData.destWalletAddress,
-                orderData.sourceToken,
-                orderData.destToken,
-                sourceAmount,
-                destAmount,
-                deadline
-            )
-            .send({
-                from: account.address,
-                gas: gasLimit
-            });
-
-        console.log('Order created:', {
-            txHash: tx.transactionHash,
-            orderData,
-            network: networkId
-        });
-
-        return {
-            txHash: tx.transactionHash,
-            orderData,
-            network: networkId
-        };
+        return result;
     } catch (error) {
         console.error('Error creating order:', error);
         throw error;
@@ -538,48 +403,12 @@ async function acceptOrderWithProtocol(orderId, hashlock, timelock, privateKey, 
     try {
         console.log('Accepting order with LimitOrderProtocol...');
 
-        const web3 = getWeb3Instance(networkId);
-        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-        web3.eth.accounts.wallet.add(account);
+        const networkName = getNetworkName(networkId);
 
-        const protocolContract = new web3.eth.Contract(
-            LIMIT_ORDER_PROTOCOL_ABI,
-            CONTRACT_ADDRESSES.LIMIT_ORDER_PROTOCOL
-        );
+        // Use API instead of direct Web3 calls
+        const result = await acceptOrder(networkName, orderId, hashlock, timelock);
 
-        // Convert timelock to BigInt
-        const timelockBigInt = BigInt(timelock);
-
-        const gasEstimate = await protocolContract.methods
-            .acceptOrder(orderId, hashlock, timelockBigInt)
-            .estimateGas({ from: account.address });
-
-        // Convert gasEstimate to BigInt and calculate gas with proper BigInt arithmetic
-        const gasEstimateBigInt = BigInt(gasEstimate);
-        const gasLimit = gasEstimateBigInt * BigInt(120) / BigInt(100); // 1.2 as BigInt arithmetic
-
-        const tx = await protocolContract.methods
-            .acceptOrder(orderId, hashlock, timelockBigInt)
-            .send({
-                from: account.address,
-                gas: gasLimit
-            });
-
-        console.log('Order accepted:', {
-            orderId,
-            txHash: tx.transactionHash,
-            hashlock,
-            timelock,
-            network: networkId
-        });
-
-        return {
-            orderId,
-            txHash: tx.transactionHash,
-            hashlock,
-            timelock,
-            network: networkId
-        };
+        return result;
     } catch (error) {
         console.error('Error accepting order:', error);
         throw error;
@@ -653,7 +482,7 @@ export async function executeCrossChainSwapWithHTCL(
             aliceSourceHTCL = await createDogecoinHTCL(bobAddress, timelock, hashlock, amount, PRIVATE_KEY_1);
         }
 
-        // Step 5: Bob creates HTCL deposit on destination chain
+        // Step 4: Bob creates HTCL deposit on destination chain
         console.log('\n=== Step 4: Bob creates HTCL on destination chain ===');
         let bobDestHTCL;
         if (getChainType(dstChainId) === 'evm') {
@@ -664,22 +493,22 @@ export async function executeCrossChainSwapWithHTCL(
             bobDestHTCL = await createDogecoinHTCL(aliceAddress, timelock, hashlock, amount, PRIVATE_KEY_2);
         }
 
-        // Step 6: Alice withdraws from destination chain with secret
+        // Step 5: Alice withdraws from destination chain with secret
         console.log('\n=== Step 5: Alice withdraws from destination chain ===');
         let aliceWithdrawal;
         if (getChainType(dstChainId) === 'evm') {
-            aliceWithdrawal = await withdrawFromEVMHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, getWeb3Instance(dstChainId), false);
+            aliceWithdrawal = await withdrawFromEVMHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, true, dstChainId);
         } else if (getChainType(dstChainId) === 'cosmos') {
-            aliceWithdrawal = await withdrawFromCosmosHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, false);
+            aliceWithdrawal = await withdrawFromCosmosHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, true);
         } else if (getChainType(dstChainId) === 'dogecoin') {
-            aliceWithdrawal = await withdrawFromDogecoinHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, false);
+            aliceWithdrawal = await withdrawFromDogecoinHTCL(bobDestHTCL.contractAddress, secret, PRIVATE_KEY_1, true);
         }
 
-        // Step 7: Bob withdraws from source chain with Alice's secret
+        // Step 6: Bob withdraws from source chain with Alice's secret
         console.log('\n=== Step 6: Bob withdraws from source chain ===');
         let bobWithdrawal;
         if (getChainType(srcChainId) === 'evm') {
-            bobWithdrawal = await withdrawFromEVMHTCL(aliceSourceHTCL.contractAddress, secret, PRIVATE_KEY_2, getWeb3Instance(srcChainId), false);
+            bobWithdrawal = await withdrawFromEVMHTCL(aliceSourceHTCL.contractAddress, secret, PRIVATE_KEY_2, false, srcChainId);
         } else if (getChainType(srcChainId) === 'cosmos') {
             bobWithdrawal = await withdrawFromCosmosHTCL(aliceSourceHTCL.contractAddress, secret, PRIVATE_KEY_2, false);
         } else if (getChainType(srcChainId) === 'dogecoin') {
