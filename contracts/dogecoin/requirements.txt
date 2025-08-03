@@ -1,0 +1,6 @@
+bitcoin-utils>=0.1.0
+hashlib
+time
+base58>=2.0.0
+ecdsa>=0.18.0
+pytest>=6.0.0 
