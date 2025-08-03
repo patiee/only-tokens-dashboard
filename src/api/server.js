@@ -1,97 +1,99 @@
-import 'dotenv/config'; 
+import 'dotenv/config';
 import express from 'express'
 import cors from 'cors'
-import fetch from 'node-fetch'
+import fetch from 'node-fetch';
+import { spawn } from 'child_process';
+import path from 'path';
+import crypto from 'crypto';
+import { NetworkEnum } from '@1inch/fusion-sdk';
 
 const app = express()
 const PORT = 3001
 
-// Enable CORS for all routes with proper configuration
+// Enable CORS for all routes
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  origin: 'http://localhost:5173',
   credentials: true
 }))
 
+// Parse JSON bodies
 app.use(express.json())
 
-// Add OPTIONS handler for preflight requests
-app.options('*', cors())
-
-// RPC Proxy endpoint for blockchain calls
+// RPC proxy endpoint
 app.post('/api/rpc/:network', async (req, res) => {
   try {
     const { network } = req.params
     const { method, params, id } = req.body
-    
-    // Map network names to RPC URLs
+
+    // Map NetworkEnum to RPC URLs
     const rpcUrls = {
-      'polygon': process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
-      'sepolia': process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
-      'osmosis': process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
-      'dogecoin': process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+      [NetworkEnum.POLYGON_AMOY]: process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
+      [NetworkEnum.ETHEREUM_SEPOLIA]: process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+      [NetworkEnum.OSMOSIS]: process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
+      [NetworkEnum.DOGECOIN]: process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
     }
-    
+
     const rpcUrl = rpcUrls[network]
     if (!rpcUrl) {
       return res.status(400).json({ error: `Unsupported network: ${network}` })
     }
-    
+
     console.log(`RPC call to ${network}: ${method}`)
-    
+
     const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
         method,
-        params: params || [],
-        id: id || 1
+        params,
+        id
       })
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      console.error(`RPC error for ${network}:`, errorData)
       return res.status(response.status).json({
-        error: `RPC call failed: ${response.status} - ${errorData.error || response.statusText}`
+        error: `RPC call failed for ${network}`,
+        details: errorData
       })
     }
-    
+
     const data = await response.json()
     res.json(data)
   } catch (error) {
-    console.error('RPC proxy error:', error)
-    res.status(500).json({ error: `RPC proxy error: ${error.message}` })
+    console.error(`Error in RPC proxy for ${req.params.network}:`, error)
+    res.status(500).json({ error: error.message })
   }
 })
 
-// Gas price endpoint for specific networks
+// Gas price endpoint
 app.get('/api/gas-price/:network', async (req, res) => {
   try {
     const { network } = req.params
-    
-    // Map network names to RPC URLs
+
+    // Map NetworkEnum to RPC URLs
     const rpcUrls = {
-      'polygon': process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
-      'sepolia': process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
-      'osmosis': process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
-      'dogecoin': process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
+      [NetworkEnum.POLYGON_AMOY]: process.env.VITE_POLYGON_RPC || 'https://polygon-rpc.com',
+      [NetworkEnum.ETHEREUM_SEPOLIA]: process.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+      [NetworkEnum.OSMOSIS]: process.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone',
+      [NetworkEnum.DOGECOIN]: process.env.VITE_DOGECOIN_RPC || 'https://doge.getblock.io/mainnet/'
     }
-    
+
     const rpcUrl = rpcUrls[network]
     if (!rpcUrl) {
       return res.status(400).json({ error: `Unsupported network: ${network}` })
     }
-    
+
     console.log(`Getting gas price for ${network}`)
-    
+
     const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -100,19 +102,21 @@ app.get('/api/gas-price/:network', async (req, res) => {
         id: 1
       })
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      console.error(`Gas price error for ${network}:`, errorData)
       return res.status(response.status).json({
-        error: `Gas price fetch failed: ${response.status} - ${errorData.error || response.statusText}`
+        error: `Gas price call failed for ${network}`,
+        details: errorData
       })
     }
-    
+
     const data = await response.json()
     res.json(data)
   } catch (error) {
-    console.error('Gas price error:', error)
-    res.status(500).json({ error: `Gas price error: ${error.message}` })
+    console.error(`Error getting gas price for ${req.params.network}:`, error)
+    res.status(500).json({ error: error.message })
   }
 })
 
@@ -120,12 +124,12 @@ app.get('/api/gas-price/:network', async (req, res) => {
 app.get('/api/tokens/:chainId', async (req, res) => {
   try {
     const { chainId } = req.params
-    
+
     const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
 
     console.log(`fetching tokens for chainId: ${chainId} ${API_KEY} ${API_BASE_URL}/token/v1.2/${chainId}?provider=1inch&country=US`)
-    
+
     const response = await fetch(
       `${API_BASE_URL}/token/v1.2/${chainId}?provider=1inch&country=US`,
       {
@@ -136,7 +140,7 @@ app.get('/api/tokens/:chainId', async (req, res) => {
         },
       }
     )
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error(`Token fetch failed: ${response.status} - ${errorData.message || response.statusText}`)
@@ -144,7 +148,7 @@ app.get('/api/tokens/:chainId', async (req, res) => {
         error: `Failed to fetch tokens: ${response.status} - ${errorData.message || response.statusText}`
       })
     }
-    
+
     const data = await response.json()
     // console.log(`Successfully fetched ${Object.keys(data.tokens || {}).length} tokens for chain ${chainId}`)
     res.json(data)
@@ -158,10 +162,10 @@ app.get('/api/tokens/:chainId', async (req, res) => {
 app.get('/api/quote', async (req, res) => {
   try {
     const { srcChain, destChain, srcTokenAddress, dstTokenAddress, amount, walletAddress } = req.query
-    
+
     const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
-    
+
     const response = await fetch(
       `${API_BASE_URL}/fusion-plus/v1.0/quote/receive?` +
       `srcChain=${srcChain}&` +
@@ -179,14 +183,14 @@ app.get('/api/quote', async (req, res) => {
         }
       }
     )
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       return res.status(response.status).json({
         error: `Quote failed: ${response.status} - ${errorData.message || response.statusText}`
       })
     }
-    
+
     const data = await response.json()
     res.json(data)
   } catch (error) {
@@ -199,10 +203,10 @@ app.get('/api/quote', async (req, res) => {
 app.post('/api/swap', async (req, res) => {
   try {
     const { srcChain, destChain, srcTokenAddress, dstTokenAddress, amount, walletAddress, quoteId } = req.body
-    
+
     const API_KEY = process.env.VITE_1INCH_API_KEY || 'YOUR_API_KEY_HERE'
     const API_BASE_URL = 'https://api.1inch.dev'
-    
+
     const response = await fetch(`${API_BASE_URL}/fusion-plus/v1.0/swap`, {
       method: 'POST',
       headers: {
@@ -220,14 +224,14 @@ app.post('/api/swap', async (req, res) => {
         fee: 1
       })
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       return res.status(response.status).json({
         error: `Swap failed: ${response.status} - ${errorData.message || response.statusText}`
       })
     }
-    
+
     const data = await response.json()
     res.json(data)
   } catch (error) {
@@ -235,6 +239,275 @@ app.post('/api/swap', async (req, res) => {
     res.status(500).json({ error: `Proxy error: ${error.message}` })
   }
 })
+
+// Dogecoin HTCL class for server-side operations
+class DogecoinHTCL {
+  constructor() {
+    this.pythonPath = 'python3';
+    this.scriptDir = path.join(process.cwd(), 'contracts', 'dogecoin');
+  }
+
+  generateSecret() {
+    return '0x' + crypto.randomBytes(32).toString('hex');
+  }
+
+  generateHashlock(secret) {
+    const cleanSecret = secret.replace('0x', '');
+    const secretBuffer = Buffer.from(cleanSecret, 'hex');
+    const sha256Hash = crypto.createHash('sha256').update(secretBuffer).digest();
+    const ripemd160Hash = crypto.createHash('ripemd160').update(sha256Hash).digest();
+    return ripemd160Hash.toString('hex');
+  }
+
+  async createHTCLScript(alicePubkey, bobPubkey, timelock, hashlock) {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.scriptDir, 'htcl_script.py');
+      const pythonProcess = spawn(this.pythonPath, [
+        scriptPath,
+        '--alice-pubkey', alicePubkey,
+        '--bob-pubkey', bobPubkey,
+        '--timelock', timelock.toString(),
+        '--hashlock', hashlock
+      ]);
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(result);
+          } catch (e) {
+            reject(new Error('Failed to parse Python output'));
+          }
+        } else {
+          reject(new Error(`Python script failed: ${error}`));
+        }
+      });
+    });
+  }
+
+  async createFundingTransaction(script, amount, privateKey) {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const pythonProcess = spawn(this.pythonPath, [
+        scriptPath,
+        '--action', 'fund',
+        '--script', JSON.stringify(script),
+        '--amount', amount.toString(),
+        '--private-key', privateKey
+      ]);
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(result);
+          } catch (e) {
+            reject(new Error('Failed to parse Python output'));
+          }
+        } else {
+          reject(new Error(`Python script failed: ${error}`));
+        }
+      });
+    });
+  }
+
+  async createBobWithdrawal(script, secret, amount, privateKey, address) {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const pythonProcess = spawn(this.pythonPath, [
+        scriptPath,
+        '--action', 'bob-withdraw',
+        '--script', JSON.stringify(script),
+        '--secret', secret,
+        '--amount', amount.toString(),
+        '--private-key', privateKey,
+        '--address', address
+      ]);
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(result);
+          } catch (e) {
+            reject(new Error('Failed to parse Python output'));
+          }
+        } else {
+          reject(new Error(`Python script failed: ${error}`));
+        }
+      });
+    });
+  }
+
+  async createAliceWithdrawal(script, amount, privateKey, address) {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const pythonProcess = spawn(this.pythonPath, [
+        scriptPath,
+        '--action', 'alice-withdraw',
+        '--script', JSON.stringify(script),
+        '--amount', amount.toString(),
+        '--private-key', privateKey,
+        '--address', address
+      ]);
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(result);
+          } catch (e) {
+            reject(new Error('Failed to parse Python output'));
+          }
+        } else {
+          reject(new Error(`Python script failed: ${error}`));
+        }
+      });
+    });
+  }
+
+  async getCurrentBlockHeight() {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const pythonProcess = spawn(this.pythonPath, [
+        scriptPath,
+        '--action', 'get-block-height'
+      ]);
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(result.block_height);
+          } catch (e) {
+            reject(new Error('Failed to parse Python output'));
+          }
+        } else {
+          reject(new Error(`Python script failed: ${error}`));
+        }
+      });
+    });
+  }
+}
+
+const dogecoinHTCL = new DogecoinHTCL();
+
+// Dogecoin HTCL endpoints
+app.post('/api/dogecoin/htcl/create-script', async (req, res) => {
+  try {
+    const { alicePubkey, bobPubkey, timelock, hashlock } = req.body;
+    const script = await dogecoinHTCL.createHTCLScript(alicePubkey, bobPubkey, timelock, hashlock);
+    res.json(script);
+  } catch (error) {
+    console.error('Error creating Dogecoin HTCL script:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/dogecoin/htcl/fund', async (req, res) => {
+  try {
+    const { script, amount, privateKey } = req.body;
+    const result = await dogecoinHTCL.createFundingTransaction(script, amount, privateKey);
+    res.json(result);
+  } catch (error) {
+    console.error('Error funding Dogecoin HTCL:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/dogecoin/htcl/withdraw', async (req, res) => {
+  try {
+    const { script, secret, amount, privateKey, address, isAlice } = req.body;
+
+    let result;
+    if (isAlice) {
+      result = await dogecoinHTCL.createAliceWithdrawal(script, amount, privateKey, address);
+    } else {
+      result = await dogecoinHTCL.createBobWithdrawal(script, secret, amount, privateKey, address);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error withdrawing from Dogecoin HTCL:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/dogecoin/block-height', async (req, res) => {
+  try {
+    const blockHeight = await dogecoinHTCL.getCurrentBlockHeight();
+    res.json({ block_height: blockHeight });
+  } catch (error) {
+    console.error('Error getting Dogecoin block height:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/dogecoin/htcl/generate-secret', (req, res) => {
+  try {
+    const secret = dogecoinHTCL.generateSecret();
+    const hashlock = dogecoinHTCL.generateHashlock(secret);
+    res.json({ secret, hashlock });
+  } catch (error) {
+    console.error('Error generating Dogecoin secret:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Proxy server running on http://localhost:${PORT}`)

@@ -1,14 +1,12 @@
-// HTCL API integration via local proxy server
-const PROXY_BASE_URL = 'http://localhost:3001/api'
+import { createOsmosisWallet } from '../utils/utils';
+import { DirectSecp256k1Wallet, SigningStargateClient, StargateClient } from '@cosmjs/stargate';
+import { Web3 } from 'web3';
+import { coins } from '@cosmjs/amino';
+import { NetworkEnum } from '@1inch/fusion-sdk';
 
-// Load contract artifacts
 import htclArtifact from '../../artifacts/contracts/HTCL.sol/HTCL.json' assert { type: 'json' };
 
-// Import Dogecoin HTCL implementation
-import { DogecoinHTCL } from './dogecoin-htcl.js';
-
-// Initialize Dogecoin HTCL
-const dogecoinHTCL = new DogecoinHTCL();
+const PROXY_BASE_URL = 'http://localhost:3001/api'
 
 // Common headers for API requests
 const getHeaders = () => ({
@@ -110,17 +108,14 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
     console.log('Creating HTCL contract via API...')
 
     // For EVM chains, we can deploy the actual contract
-    if (network === 'polygon' || network === 'sepolia') {
+    if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
       console.log('Deploying real HTCL contract to', network);
-
-      // Import Web3 dynamically to avoid SSR issues
-      const { default: Web3 } = await import('web3');
 
       // Get RPC URL based on network
       let rpcUrl;
-      if (network === 'polygon') {
+      if (network === NetworkEnum.POLYGON_AMOY) {
         rpcUrl = import.meta.env.VITE_POLYGON_RPC;
-      } else if (network === 'sepolia') {
+      } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
 
@@ -170,7 +165,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         from: account.address,
         value: amount
       });
-      const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
       console.log('Estimated gas:', gasEstimate);
       console.log('Gas limit:', gasLimit);
@@ -200,12 +195,8 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
     }
 
     // For Osmosis/Cosmos chains, instantiate CosmWasm contract
-    if (network === 'osmosis') {
+    if (network === NetworkEnum.OSMOSIS) {
       console.log('Instantiating CosmWasm HTCL contract on Osmosis');
-
-      // Import CosmJS for CosmWasm interactions
-      const { DirectSecp256k1Wallet, SigningStargateClient, StargateClient } = await import('@cosmjs/stargate');
-      const { coins } = await import('@cosmjs/amino');
 
       // Get private key from environment
       const privateKey = import.meta.env.VITE_PRIVATE_KEY_1;
@@ -214,13 +205,15 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       }
 
       // Setup wallet
-      const wallet = await DirectSecp256k1Wallet.fromKey(
-        Buffer.from(privateKey.replace('0x', ''), 'hex'),
-        'osmo'
-      );
+      const wallet = await createOsmosisWallet(privateKey);
 
       const [account] = await wallet.getAccounts();
       console.log('Instantiating from address:', account.address);
+      console.log('To Bob address:', bobAddress);
+      console.log('Timelock:', timelock);
+      console.log('Hashlock:', hashlock);
+      console.log('Amount:', amount);
+      console.log('Token type:', tokenType);
 
       // Setup client
       const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC || 'https://rpc.osmosis.zone';
@@ -231,14 +224,14 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         bob: bobAddress,
         timelock: timelock,
         hashlock: hashlock,
-        cw20: tokenType === 'cw20' ? account.address : null, // CW20 token address
-        native: tokenType === 'native' ? amount : null // Native token amount
+        cw20: tokenType === 'cw20' ? account.address : null,
+        native: tokenType === 'native' ? amount : null
       };
 
-      console.log('Instantiate message:', instantiateMsg);
-
-      // Prepare funds for native token
       const funds = tokenType === 'native' ? coins(amount, 'uosmo') : [];
+
+      console.log('Instantiate message:', instantiateMsg);
+      console.log('Funds:', funds);
 
       // Instantiate contract
       const CODE_ID = 12789;
@@ -248,10 +241,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         instantiateMsg,
         'HTCL Contract',
         'auto',
-        {
-          admin: account.address,
-          funds: funds
-        }
+        { admin: account.address, funds: funds }
       );
 
       console.log('HTCL contract instantiated successfully!');
@@ -271,7 +261,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
     }
 
     // For Dogecoin, use real HTCL implementation
-    if (network === 'dogecoin') {
+    if (network === NetworkEnum.DOGECOIN) {
       console.log('Creating real Dogecoin HTCL contract');
 
       // Get private key from environment
@@ -280,23 +270,23 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         throw new Error('No private key found for Dogecoin deployment');
       }
 
-      // Generate Alice's public key from private key (simplified)
+      // Generate Alice's and Bob's public keys from private keys (simplified)
       const alicePubkey = '02' + crypto.randomBytes(32).toString('hex');
       const bobPubkey = '02' + crypto.randomBytes(32).toString('hex');
 
-      console.log('Creating HTCL script with:');
+      // Get current block height for timelock calculation
+      const currentBlock = await getDogecoinBlockHeight();
+      const timelock = currentBlock + 1000; // 1000 blocks from now
+
+      console.log('Creating Dogecoin HTCL with:');
       console.log('- Alice pubkey:', alicePubkey);
       console.log('- Bob pubkey:', bobPubkey);
       console.log('- Timelock:', timelock);
       console.log('- Hashlock:', hashlock);
+      console.log('- Amount:', amount);
 
       // Create HTCL script
-      const script = await dogecoinHTCL.createHTCLScript(
-        alicePubkey,
-        bobPubkey,
-        timelock,
-        hashlock
-      );
+      const script = await createDogecoinHTCLScript(alicePubkey, bobPubkey, timelock, hashlock);
 
       console.log('HTCL script created:', {
         p2sh_address: script.p2sh_address,
@@ -304,11 +294,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       });
 
       // Create funding transaction
-      const fundingTx = await dogecoinHTCL.createFundingTransaction(
-        script,
-        amount,
-        privateKey
-      );
+      const fundingTx = await fundDogecoinHTCL(script, amount, privateKey);
 
       console.log('Dogecoin HTCL funding transaction created:', {
         txid: fundingTx.txid,
@@ -317,35 +303,30 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       });
 
       return {
-        contractAddress: script.p2sh_address, // Use P2SH address as contract address
+        contractAddress: script.p2sh_address,
         txHash: fundingTx.txid,
         bobAddress,
         timelock,
         hashlock,
         amount,
         network,
-        script: script // Include script for withdrawals
+        script: script
       };
     }
 
-    // For other chains, use mock deployment
-    console.log('Using mock deployment for chain:', network);
-    let mockContractAddress;
-    if (network === 'osmosis') {
-      mockContractAddress = 'osmo1' + Math.random().toString(16).substr(2, 40);
-    } else {
-      mockContractAddress = '0x' + Math.random().toString(16).substr(2, 40);
-    }
-
+    // For other networks, use mock implementation
+    console.log('Using mock HTCL creation for network:', network);
+    const mockContractAddress = '0x' + Math.random().toString(16).substr(2, 40);
     const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64);
 
-    console.log('HTCL contract created (mocked):', {
-      network,
+    console.log('Mock HTCL created:', {
       contractAddress: mockContractAddress,
       txHash: mockTxHash,
       bobAddress,
       timelock,
-      hashlock
+      hashlock,
+      amount,
+      network
     });
 
     return {
@@ -354,11 +335,12 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       bobAddress,
       timelock,
       hashlock,
+      amount,
       network
     };
   } catch (error) {
-    console.error('Error creating HTCL contract:', error);
-    throw error;
+    console.error('Error creating HTCL contract:', error)
+    throw error
   }
 }
 
@@ -368,17 +350,14 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
     console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from HTCL via API...`);
 
     // For EVM chains, we can use real contract interaction
-    if (network === 'polygon' || network === 'sepolia') {
+    if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
       console.log('Calling real HTCL contract on', network);
-
-      // Import Web3 dynamically to avoid SSR issues
-      const { default: Web3 } = await import('web3');
 
       // Get RPC URL based on network
       let rpcUrl;
-      if (network === 'polygon') {
+      if (network === NetworkEnum.POLYGON_AMOY) {
         rpcUrl = import.meta.env.VITE_POLYGON_RPC;
-      } else if (network === 'sepolia') {
+      } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
 
@@ -470,11 +449,8 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
     }
 
     // For Osmosis/Cosmos chains, use CosmWasm contract calls
-    if (network === 'osmosis') {
+    if (network === NetworkEnum.OSMOSIS) {
       console.log('Calling CosmWasm HTCL contract on Osmosis');
-
-      // Import CosmJS for CosmWasm interactions
-      const { DirectSecp256k1Wallet, SigningStargateClient } = await import('@cosmjs/stargate');
 
       // Get private key from environment
       const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
@@ -483,11 +459,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       }
 
       // Setup wallet
-      const wallet = await DirectSecp256k1Wallet.fromKey(
-        Buffer.from(privateKey.replace('0x', ''), 'hex'),
-        'osmo'
-      );
-
+      const wallet = await createOsmosisWallet(privateKey);
       const [account] = await wallet.getAccounts();
       console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from contract:`, contractAddress);
       console.log('Using address:', account.address);
@@ -537,7 +509,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
     }
 
     // For Dogecoin, use real HTCL withdrawal
-    if (network === 'dogecoin') {
+    if (network === NetworkEnum.DOGECOIN) {
       console.log('Creating real Dogecoin HTCL withdrawal');
 
       // Get private key from environment
@@ -551,7 +523,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       const bobPubkey = '02' + crypto.randomBytes(32).toString('hex');
 
       // Get current block height for timelock calculation
-      const currentBlock = await dogecoinHTCL.getCurrentBlockHeight();
+      const currentBlock = await getDogecoinBlockHeight();
       const timelock = currentBlock + 1000; // 1000 blocks from now
 
       console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Dogecoin HTCL:`);
@@ -564,12 +536,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       }
 
       // Generate HTCL script using hashlock
-      const script = await dogecoinHTCL.createHTCLScript(
-        alicePubkey,
-        bobPubkey,
-        timelock,
-        hashlock
-      );
+      const script = await createDogecoinHTCLScript(alicePubkey, bobPubkey, timelock, hashlock);
 
       console.log('Generated HTCL script:', {
         p2sh_address: script.p2sh_address,
@@ -580,21 +547,10 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
       if (isAlice) {
         // Alice withdraws after timelock
-        withdrawalTx = await dogecoinHTCL.createAliceWithdrawal(
-          script,
-          500000, // Amount in satoshis (0.5 DOGE)
-          privateKey,
-          contractAddress // Use contract address as destination
-        );
+        withdrawalTx = await withdrawFromDogecoinHTCL(script, secret, 500000, privateKey, contractAddress, isAlice);
       } else {
         // Bob withdraws with secret
-        withdrawalTx = await dogecoinHTCL.createBobWithdrawal(
-          script,
-          secret,
-          500000, // Amount in satoshis (0.5 DOGE)
-          privateKey,
-          contractAddress // Use contract address as destination
-        );
+        withdrawalTx = await withdrawFromDogecoinHTCL(script, secret, 500000, privateKey, contractAddress, isAlice);
       }
 
       console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew successfully from Dogecoin HTCL!`);
@@ -611,7 +567,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
     // For other chains, use mock withdrawal
     console.log('Using mock withdrawal for chain:', network);
     let mockTxHash;
-    if (network === 'osmosis') {
+    if (network === NetworkEnum.OSMOSIS) {
       mockTxHash = 'osmo' + Math.random().toString(16).substr(2, 64);
     } else {
       mockTxHash = '0x' + Math.random().toString(16).substr(2, 64);
@@ -687,4 +643,71 @@ export const acceptOrder = async (network, orderId, hashlock, timelock) => {
     console.error('Error accepting order:', error)
     throw error
   }
+}
+
+// Dogecoin HTCL API functions
+async function createDogecoinHTCLScript(alicePubkey, bobPubkey, timelock, hashlock) {
+  const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/create-script`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alicePubkey, bobPubkey, timelock, hashlock })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create Dogecoin HTCL script: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function fundDogecoinHTCL(script, amount, privateKey) {
+  const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/fund`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script, amount, privateKey })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fund Dogecoin HTCL: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function withdrawFromDogecoinHTCL(script, secret, amount, privateKey, address, isAlice) {
+  const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/withdraw`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script, secret, amount, privateKey, address, isAlice })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to withdraw from Dogecoin HTCL: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function getDogecoinBlockHeight() {
+  const response = await fetch(`${PROXY_BASE_URL}/dogecoin/block-height`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get Dogecoin block height: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.block_height;
+}
+
+async function generateDogecoinSecret() {
+  const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/generate-secret`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate Dogecoin secret: ${response.statusText}`);
+  }
+
+  return response.json();
 } 

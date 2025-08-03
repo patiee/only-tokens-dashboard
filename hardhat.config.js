@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
+const { NetworkEnum } = require('@1inch/fusion-sdk');
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -23,12 +24,12 @@ module.exports = {
         amoy: {
             url: process.env.POLYGON_AMOY_RPC_URL,
             accounts: [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2].filter(Boolean),
-            chainId: 80002,
+            chainId: NetworkEnum.POLYGON_AMOY,
         },
         sepolia: {
             url: process.env.SEPOLIA_RPC_URL,
             accounts: [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2].filter(Boolean),
-            chainId: 11155111,
+            chainId: NetworkEnum.ETHEREUM_SEPOLIA,
         },
     },
     paths: {

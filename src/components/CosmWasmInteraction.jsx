@@ -1,20 +1,18 @@
 // src/components/CosmWasmInteraction.jsx
 import React, { useState } from 'react';
+import { NetworkEnum } from '@1inch/fusion-sdk';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { SigningStargateClient } from '@cosmjs/stargate';
 
-function CosmWasmInteraction() {
-  const [walletAddress, setWalletAddress] = useState('');
-  const [txHash, setTxHash] = useState('');
-  const [error, setError] = useState('');
-  const [client, setClient] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [extensionAvailable, setExtensionAvailable] = useState(false);
+const CosmWasmInteraction = () => {
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const chainId = NetworkEnum.OSMOSIS;
 
   // Configuration
   const rpcEndpoint = 'https://osmosis-rpc.publicnode.com:443';
-  const chainId = 'osmo-test-5';
   const contractAddress = 'osmo1...'; // Replace with your actual contract address
 
   const getOfflineSigner = async () => {

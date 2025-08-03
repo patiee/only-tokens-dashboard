@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import {
-    executeCrossChainSwapWithHTCL,
-    executeEVMToCosmosSwap,
-    executeCosmosToEVMSwap,
-    executeEVMToDogecoinSwap,
-    executeDogecoinToEVMSwap
+    executeCrossChainSwapWithHTCL
 } from '../order/crossChainOrder.js';
 import { TOKENS } from '../config/const';
 import { NetworkEnum } from '@1inch/fusion-sdk';
@@ -91,46 +87,17 @@ const HTCLSwapInterface = () => {
         try {
             const { srcToken, dstToken } = getTokenAddresses();
 
-            // Determine swap type based on networks
-            let swapType;
-            if ((sourceNetwork === NetworkEnum.POLYGON_AMOY || sourceNetwork === NetworkEnum.ETHEREUM_SEPOLIA) && destNetwork === NetworkEnum.OSMOSIS) {
-                swapType = 'evm-cosmos';
-            } else if (sourceNetwork === NetworkEnum.OSMOSIS && (destNetwork === NetworkEnum.POLYGON_AMOY || destNetwork === NetworkEnum.ETHEREUM_SEPOLIA)) {
-                swapType = 'cosmos-evm';
-            } else if ((sourceNetwork === NetworkEnum.POLYGON_AMOY || sourceNetwork === NetworkEnum.ETHEREUM_SEPOLIA) && destNetwork === NetworkEnum.DOGECOIN) {
-                swapType = 'evm-dogecoin';
-            } else if (sourceNetwork === NetworkEnum.DOGECOIN && (destNetwork === NetworkEnum.POLYGON_AMOY || destNetwork === NetworkEnum.ETHEREUM_SEPOLIA)) {
-                swapType = 'dogecoin-evm';
-            } else {
-                swapType = 'generic';
-            }
-
-            let swapResult;
-
-            switch (swapType) {
-                case 'evm-cosmos':
-                    swapResult = await executeEVMToCosmosSwap(sourceAmount, srcToken, dstToken, aliceAddress, bobAddress);
-                    break;
-                case 'cosmos-evm':
-                    swapResult = await executeCosmosToEVMSwap(sourceAmount, srcToken, dstToken, aliceAddress, bobAddress);
-                    break;
-                case 'evm-dogecoin':
-                    swapResult = await executeEVMToDogecoinSwap(sourceAmount, srcToken, dstToken, aliceAddress, bobAddress);
-                    break;
-                case 'dogecoin-evm':
-                    swapResult = await executeDogecoinToEVMSwap(sourceAmount, srcToken, dstToken, aliceAddress, bobAddress);
-                    break;
-                default:
-                    swapResult = await executeCrossChainSwapWithHTCL(
-                        sourceNetwork,
-                        destNetwork,
-                        sourceAmount,
-                        srcToken,
-                        dstToken,
-                        aliceAddress,
-                        bobAddress
-                    );
-            }
+            // Always use the generic cross-chain swap function
+            // This ensures the correct source and destination chain IDs are used
+            const swapResult = await executeCrossChainSwapWithHTCL(
+                sourceNetwork,
+                destNetwork,
+                sourceAmount,
+                srcToken,
+                dstToken,
+                aliceAddress,
+                bobAddress
+            );
 
             setResult(swapResult);
         } catch (err) {

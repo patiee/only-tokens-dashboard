@@ -171,26 +171,6 @@ function getChainType(chainId) {
     return 'evm';
 }
 
-/**
- * Get network name from chain ID
- * @param {number} chainId - The chain ID
- * @returns {string} The network name
- */
-function getNetworkName(chainId) {
-    switch (chainId) {
-        case NetworkEnum.POLYGON_AMOY:
-            return 'polygon';
-        case NetworkEnum.ETHEREUM_SEPOLIA:
-            return 'sepolia';
-        case NetworkEnum.OSMOSIS:
-            return 'osmosis';
-        case NetworkEnum.DOGECOIN:
-            return 'dogecoin';
-        default:
-            return 'polygon'; // Default to polygon
-    }
-}
-
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -209,10 +189,8 @@ async function createEVMHTCL(bobAddress, timelock, hashlock, amount, privateKey,
     try {
         console.log('Creating EVM HTCL contract...');
 
-        const networkName = getNetworkName(networkId);
-
-        // Use API instead of direct Web3 calls
-        const result = await createHTCLContract(networkName, bobAddress, timelock, hashlock, amount);
+        // Pass NetworkEnum constant directly to API
+        const result = await createHTCLContract(networkId, bobAddress, timelock, hashlock, amount);
 
         return result;
     } catch (error) {
@@ -236,7 +214,7 @@ async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateK
         console.log('Creating Cosmos HTCL contract...');
 
         // Use API for Cosmos HTCL creation with token type
-        const result = await createHTCLContract('osmosis', bobAddress, timelock, hashlock, amount, tokenType);
+        const result = await createHTCLContract(NetworkEnum.OSMOSIS, bobAddress, timelock, hashlock, amount, tokenType);
 
         console.log('Cosmos HTCL created:', {
             contractAddress: result.contractAddress,
@@ -272,7 +250,7 @@ async function createDogecoinHTCL(bobAddress, timelock, hashlock, amount, privat
         console.log('Creating Dogecoin HTCL contract...');
 
         // Use API for Dogecoin HTCL creation
-        const result = await createHTCLContract('dogecoin', bobAddress, timelock, hashlock, amount);
+        const result = await createHTCLContract(NetworkEnum.DOGECOIN, bobAddress, timelock, hashlock, amount);
 
         console.log('Dogecoin HTCL created:', {
             contractAddress: result.contractAddress,
@@ -303,9 +281,14 @@ async function withdrawFromEVMHTCL(contractAddress, secret, privateKey, isAlice 
     try {
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from EVM HTCL...`);
 
-        // Use API instead of direct Web3 calls
-        const networkName = getNetworkName(networkId);
-        const result = await withdrawFromHTCL(networkName, contractAddress, secret, isAlice);
+        // Pass NetworkEnum constant directly to API
+        const result = await withdrawFromHTCL(networkId, contractAddress, secret, isAlice);
+
+        console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from EVM HTCL:`, {
+            contractAddress,
+            txHash: result.txHash,
+            secret: isAlice ? 'N/A' : secret
+        });
 
         return result;
     } catch (error) {
@@ -327,7 +310,7 @@ async function withdrawFromCosmosHTCL(contractAddress, secret, privateKey, isAli
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Cosmos HTCL...`);
 
         // Use API for Cosmos HTCL withdrawal
-        const result = await withdrawFromHTCL('osmosis', contractAddress, secret, isAlice);
+        const result = await withdrawFromHTCL(NetworkEnum.OSMOSIS, contractAddress, secret, isAlice);
 
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from Cosmos HTCL:`, {
             contractAddress,
@@ -355,7 +338,7 @@ async function withdrawFromDogecoinHTCL(contractAddress, secret, privateKey, isA
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Dogecoin HTCL...`);
 
         // Use API for Dogecoin HTCL withdrawal
-        const result = await withdrawFromHTCL('dogecoin', contractAddress, secret, isAlice);
+        const result = await withdrawFromHTCL(NetworkEnum.DOGECOIN, contractAddress, secret, isAlice);
 
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from Dogecoin HTCL:`, {
             contractAddress,
@@ -381,10 +364,8 @@ async function createOrderWithProtocol(orderData, privateKey, networkId = Networ
     try {
         console.log('Creating order with LimitOrderProtocol...');
 
-        const networkName = getNetworkName(networkId);
-
-        // Use API instead of direct Web3 calls
-        const result = await createOrder(networkName, orderData);
+        // Pass NetworkEnum constant directly to API
+        const result = await createOrder(networkId, orderData);
 
         return result;
     } catch (error) {
@@ -406,10 +387,8 @@ async function acceptOrderWithProtocol(orderId, hashlock, timelock, privateKey, 
     try {
         console.log('Accepting order with LimitOrderProtocol...');
 
-        const networkName = getNetworkName(networkId);
-
-        // Use API instead of direct Web3 calls
-        const result = await acceptOrder(networkName, orderId, hashlock, timelock);
+        // Pass NetworkEnum constant directly to API
+        const result = await acceptOrder(networkId, orderId, hashlock, timelock);
 
         return result;
     } catch (error) {
