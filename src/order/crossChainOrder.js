@@ -228,14 +228,15 @@ async function createEVMHTCL(bobAddress, timelock, hashlock, amount, privateKey,
  * @param {string} hashlock - Hashlock
  * @param {string} amount - Amount to deposit
  * @param {string} privateKey - Private key for transaction
+ * @param {string} tokenType - Token type ('native' or 'cw20')
  * @returns {Promise<Object>} HTCL contract details
  */
-async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateKey) {
+async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateKey, tokenType = 'native') {
     try {
         console.log('Creating Cosmos HTCL contract...');
 
-        // Use API for Cosmos HTCL creation
-        const result = await createHTCLContract('osmosis', bobAddress, timelock, hashlock, amount);
+        // Use API for Cosmos HTCL creation with token type
+        const result = await createHTCLContract('osmosis', bobAddress, timelock, hashlock, amount, tokenType);
 
         console.log('Cosmos HTCL created:', {
             contractAddress: result.contractAddress,
@@ -243,6 +244,7 @@ async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, privateK
             bobAddress,
             timelock,
             hashlock,
+            tokenType,
             codeId: CONTRACT_ADDRESSES.COSMOS_CODE_ID
         });
 
@@ -277,7 +279,8 @@ async function createDogecoinHTCL(bobAddress, timelock, hashlock, amount, privat
             txHash: result.txHash,
             bobAddress,
             timelock,
-            hashlock
+            hashlock,
+            script: result.script // Include script for withdrawals
         });
 
         return result;

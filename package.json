@@ -13,6 +13,7 @@
     "@1inch/cross-chain-sdk": "file:../cross-chain-sdk",
     "@1inch/fusion-sdk": "file:../fusion-sdk",
     "@1inch/limit-order-sdk": "file:../limit-order-sdk",
+    "@cosmjs/amino": "^0.34.0",
     "@cosmjs/cosmwasm-stargate": "^0.34.0",
     "@cosmjs/crypto": "^0.34.0",
     "@cosmjs/proto-signing": "^0.34.0",
