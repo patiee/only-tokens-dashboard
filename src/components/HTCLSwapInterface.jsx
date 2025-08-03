@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     executeCrossChainSwapWithHTCL
 } from '../order/crossChainOrder.js';
@@ -16,6 +16,19 @@ const HTCLSwapInterface = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+
+    // Debug NetworkEnum values on component mount
+    useEffect(() => {
+        console.log('=== NetworkEnum Debug ===');
+        console.log('NetworkEnum.OSMOSIS:', NetworkEnum.OSMOSIS, typeof NetworkEnum.OSMOSIS);
+        console.log('NetworkEnum.POLYGON_AMOY:', NetworkEnum.POLYGON_AMOY, typeof NetworkEnum.POLYGON_AMOY);
+        console.log('NetworkEnum.ETHEREUM_SEPOLIA:', NetworkEnum.ETHEREUM_SEPOLIA, typeof NetworkEnum.ETHEREUM_SEPOLIA);
+        console.log('NetworkEnum.DOGECOIN:', NetworkEnum.DOGECOIN, typeof NetworkEnum.DOGECOIN);
+        console.log('TOKENS keys:', Object.keys(TOKENS));
+        console.log('TOKENS[NetworkEnum.OSMOSIS]:', TOKENS[NetworkEnum.OSMOSIS]);
+        console.log('TOKENS[NetworkEnum.POLYGON_AMOY]:', TOKENS[NetworkEnum.POLYGON_AMOY]);
+        console.log('=== End Debug ===');
+    }, []);
 
     // All available networks
     const allNetworks = [
@@ -63,8 +76,41 @@ const HTCLSwapInterface = () => {
     };
 
     const getTokenAddresses = () => {
-        const srcToken = TOKENS[sourceNetwork]?.USDC || TOKENS[sourceNetwork]?.DOGE || '0x...';
-        const dstToken = TOKENS[destNetwork]?.USDC || TOKENS[destNetwork]?.DOGE || '0x...';
+        // Debug logging to see what values we're working with
+        console.log('Source Network:', sourceNetwork, typeof sourceNetwork);
+        console.log('Dest Network:', destNetwork, typeof destNetwork);
+        console.log('TOKENS keys:', Object.keys(TOKENS));
+        console.log('TOKENS[sourceNetwork]:', TOKENS[sourceNetwork]);
+        console.log('TOKENS[destNetwork]:', TOKENS[destNetwork]);
+
+        // Get token addresses with proper fallbacks
+        let srcToken = '0x...';
+        let dstToken = '0x...';
+
+        // Handle source network
+        if (sourceNetwork === NetworkEnum.OSMOSIS) {
+            srcToken = TOKENS[NetworkEnum.OSMOSIS].USDC;
+        } else if (sourceNetwork === NetworkEnum.POLYGON_AMOY) {
+            srcToken = TOKENS[NetworkEnum.POLYGON_AMOY].USDC;
+        } else if (sourceNetwork === NetworkEnum.ETHEREUM_SEPOLIA) {
+            srcToken = TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].USDC;
+        } else if (sourceNetwork === NetworkEnum.DOGECOIN) {
+            srcToken = TOKENS[NetworkEnum.DOGECOIN].DOGE;
+        }
+
+        // Handle destination network
+        if (destNetwork === NetworkEnum.OSMOSIS) {
+            dstToken = TOKENS[NetworkEnum.OSMOSIS].USDC;
+        } else if (destNetwork === NetworkEnum.POLYGON_AMOY) {
+            dstToken = TOKENS[NetworkEnum.POLYGON_AMOY].USDC;
+        } else if (destNetwork === NetworkEnum.ETHEREUM_SEPOLIA) {
+            dstToken = TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].USDC;
+        } else if (destNetwork === NetworkEnum.DOGECOIN) {
+            dstToken = TOKENS[NetworkEnum.DOGECOIN].DOGE;
+        }
+
+        console.log('Final srcToken:', srcToken);
+        console.log('Final dstToken:', dstToken);
 
         return { srcToken, dstToken };
     };
