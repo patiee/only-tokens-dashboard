@@ -69,7 +69,7 @@ async function deployHTCLContract(web3, isAlice = true, bobAddress, timelock, ha
             from: account.address,
             value: amount
         });
-        const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+        const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
         console.log('Estimated gas:', gasEstimate);
         console.log('Gas limit:', gasLimit);

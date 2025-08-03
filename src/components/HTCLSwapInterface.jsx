@@ -98,22 +98,25 @@ const HTCLSwapInterface = () => {
         switch (sourceNetwork) {
             case NetworkEnum.POLYGON_AMOY:
             case NetworkEnum.ETHEREUM_SEPOLIA:
-                // EVM chains can swap to Cosmos and Dogecoin
+                // EVM chains can swap to Cosmos, Dogecoin, and same chain
                 return allNetworks.filter(net =>
                     net.value === NetworkEnum.OSMOSIS ||
-                    net.value === NetworkEnum.DOGECOIN
+                    net.value === NetworkEnum.DOGECOIN ||
+                    net.value === sourceNetwork // Allow same-chain swaps
                 );
             case NetworkEnum.OSMOSIS:
-                // Cosmos can swap to EVM chains
+                // Cosmos can swap to EVM chains and same chain
                 return allNetworks.filter(net =>
                     net.value === NetworkEnum.POLYGON_AMOY ||
-                    net.value === NetworkEnum.ETHEREUM_SEPOLIA
+                    net.value === NetworkEnum.ETHEREUM_SEPOLIA ||
+                    net.value === sourceNetwork // Allow same-chain swaps
                 );
             case NetworkEnum.DOGECOIN:
-                // Dogecoin can swap to EVM chains
+                // Dogecoin can swap to EVM chains and same chain
                 return allNetworks.filter(net =>
                     net.value === NetworkEnum.POLYGON_AMOY ||
-                    net.value === NetworkEnum.ETHEREUM_SEPOLIA
+                    net.value === NetworkEnum.ETHEREUM_SEPOLIA ||
+                    net.value === sourceNetwork // Allow same-chain swaps
                 );
             default:
                 return allNetworks;
@@ -122,15 +125,28 @@ const HTCLSwapInterface = () => {
 
     // Handle source network change
     const handleSourceNetworkChange = (network) => {
+        console.log('handleSourceNetworkChange called with network:', network, typeof network);
         setSourceNetwork(network);
+
         // Update source token address based on new network
         const availableTokens = getAvailableTokens(network);
+        console.log('Available tokens for network:', network, ':', availableTokens);
+
         if (availableTokens.length > 0) {
-            setSrcTokenAddress(availableTokens[0].value);
+            const firstToken = availableTokens[0];
+            console.log('Setting srcTokenAddress to:', firstToken.value, typeof firstToken.value);
+            setSrcTokenAddress(firstToken.value);
+        } else {
+            console.log('No tokens available for network:', network);
+            setSrcTokenAddress('');
         }
+
         // Reset destination network if current selection is not valid for new source
         const availableDestNetworks = getAvailableDestNetworks(network);
+        console.log('Available destination networks:', availableDestNetworks);
+
         if (!availableDestNetworks.find(net => net.value === destNetwork)) {
+            console.log('Current destNetwork not valid, setting to:', availableDestNetworks[0].value);
             setDestNetwork(availableDestNetworks[0].value);
             // Also update destination token address
             const destAvailableTokens = getAvailableTokens(availableDestNetworks[0].value);
@@ -261,7 +277,7 @@ const HTCLSwapInterface = () => {
                         <label className="swap-label">From Network</label>
                         <select
                             value={sourceNetwork}
-                            onChange={(e) => handleSourceNetworkChange(Number(e.target.value))}
+                            onChange={(e) => handleSourceNetworkChange(e.target.value)}
                             className="swap-input"
                         >
                             {allNetworks.map(network => (
@@ -282,11 +298,15 @@ const HTCLSwapInterface = () => {
                             }}
                             className="token-address-input"
                         >
-                            {getAvailableTokens(sourceNetwork).map(token => (
-                                <option key={token.value} value={token.value}>
-                                    {token.label}
-                                </option>
-                            ))}
+                            {(() => {
+                                const tokens = getAvailableTokens(sourceNetwork);
+                                console.log('Rendering tokens for sourceNetwork:', sourceNetwork, 'tokens:', tokens);
+                                return tokens.map(token => (
+                                    <option key={token.value} value={token.value}>
+                                        {token.label}
+                                    </option>
+                                ));
+                            })()}
                         </select>
                     </div>
 
@@ -306,7 +326,7 @@ const HTCLSwapInterface = () => {
                         <label className="swap-label">To Network</label>
                         <select
                             value={destNetwork}
-                            onChange={(e) => handleDestNetworkChange(Number(e.target.value))}
+                            onChange={(e) => handleDestNetworkChange(e.target.value)}
                             className="swap-input"
                         >
                             {availableDestNetworks.map(network => (

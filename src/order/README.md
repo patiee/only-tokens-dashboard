@@ -7,7 +7,7 @@ This module implements Hash Time-Locked Contract (HTCL) functionality for cross-
 The implementation follows a specific flow where Alice (order creator) and Bob (order acceptor) coordinate to execute cross-chain swaps using HTCL contracts:
 
 1. **Alice creates an order** with LimitOrderProtocol
-2. **Bob accepts the order** and provides hashlock
+2. **Bob accepts the order** waits for Alice deposit
 3. **Alice creates HTCL deposit** on source chain with hashlock
 4. **Bob creates HTCL deposit** on destination chain with hashlock
 5. **Alice withdraws** from destination chain with secret before timelock
@@ -41,7 +41,7 @@ VITE_DOGECOIN_RPC=https://doge.getblock.io/mainnet/
 const CONTRACT_ADDRESSES = {
     HTCL: '0x...', // Deployed HTCL contract address
     LIMIT_ORDER_PROTOCOL: '0x...', // Deployed LimitOrderProtocol address
-    COSMOS_CODE_ID: 12789 // Osmosis HTCL contract code ID
+    COSMOS_CODE_ID: 12792 // Osmosis HTCL contract code ID
 };
 ```
 

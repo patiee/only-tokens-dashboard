@@ -97,4 +97,4 @@ sudo osmosisd tx wasm store $CONTRACT_BINARY \
         --output json \
         --yes
 
-CODE_ID=12789
+CODE_ID=12792

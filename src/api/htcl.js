@@ -116,7 +116,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       // Get RPC URL based on network
       let rpcUrl;
       if (network === NetworkEnum.POLYGON_AMOY) {
-        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+        rpcUrl = import.meta.env.VITE_POLYGON_AMOY_RPC_URL;
       } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
@@ -236,7 +236,17 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         throw new Error('No Osmosis RPC URL found. Please set VITE_OSMOSIS_RPC environment variable.');
       }
       console.log('Using RPC URL:', rpcUrl);
-      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
+
+      // Configure client with gas price for Osmosis
+      const clientOptions = {
+        gasPrice: "0.025uosmo" // Osmosis gas price
+      };
+      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet, clientOptions);
+
+      // Validate bob address format
+      if (!bobAddress || !bobAddress.startsWith('osmo')) {
+        throw new Error(`Invalid Osmosis address format: ${bobAddress}`);
+      }
 
       // Prepare instantiate message
       const instantiateMsg = {
@@ -247,14 +257,22 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         native: actualTokenType === 'native' ? tokenAddress : null
       };
 
-      const funds = actualTokenType === 'native' ? coins(amount, tokenAddress) : [];
+      // Create funds array based on token type
+      let funds = [];
+      if (actualTokenType === 'native' && tokenAddress) {
+        funds = coins(amount, tokenAddress);
+      } else if (actualTokenType === 'cw20') {
+        // CW20 tokens don't use funds array for instantiation
+        funds = [];
+      }
 
       console.log('Actual token type determined:', actualTokenType);
+      console.log('Token address for funds:', tokenAddress);
       console.log('Instantiate message:', instantiateMsg);
-      console.log('Funds:', funds);
+      console.log('Funds array:', funds);
 
       // Instantiate contract
-      const CODE_ID = 12789;
+      const CODE_ID = 12792;
       const result = await client.instantiate(
         account.address,
         CODE_ID,
@@ -365,7 +383,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
 }
 
 // Withdraw from HTCL contract using real contract interaction
-export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice = false) => {
+export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice = false, asAlice = isAlice) => {
   try {
     console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from HTCL via API...`);
 
@@ -376,7 +394,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       // Get RPC URL based on network
       let rpcUrl;
       if (network === NetworkEnum.POLYGON_AMOY) {
-        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+        rpcUrl = import.meta.env.VITE_POLYGON_AMOY_RPC_URL;
       } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
@@ -419,13 +437,13 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
       let tx;
 
-      if (isAlice) {
+      if (asAlice) {
         // Alice withdraws using aliceWithdraw()
         const aliceWithdrawTx = contract.methods.aliceWithdraw();
 
         // Estimate gas
         const gasEstimate = await aliceWithdrawTx.estimateGas({ from: account.address });
-        const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+        const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
         console.log('Estimated gas for aliceWithdraw:', gasEstimate);
         console.log('Gas limit:', gasLimit);
@@ -443,7 +461,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
         // Estimate gas
         const gasEstimate = await bobWithdrawTx.estimateGas({ from: account.address });
-        const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+        const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
         console.log('Estimated gas for bobWithdraw:', gasEstimate);
         console.log('Gas limit:', gasLimit);
@@ -486,7 +504,17 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
       // Setup client
       const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC;
-      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
+      if (!rpcUrl) {
+        throw new Error('No Osmosis RPC URL found. Please set VITE_OSMOSIS_RPC environment variable.');
+      }
+      console.log('Using RPC URL for withdrawal:', rpcUrl);
+
+      // Configure client with gas price for Osmosis
+      const clientOptions = {
+        gasPrice: "0.025uosmo" // Osmosis gas price
+      };
+      console.log('Client options for withdrawal:', clientOptions);
+      const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet, clientOptions);
 
       let executeMsg;
 
@@ -623,7 +651,7 @@ export const createOrder = async (network, orderData, isAlice = true) => {
       // Get RPC URL based on network
       let rpcUrl;
       if (network === NetworkEnum.POLYGON_AMOY) {
-        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+        rpcUrl = import.meta.env.VITE_POLYGON_AMOY_RPC_URL;
       } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
@@ -677,7 +705,7 @@ export const createOrder = async (network, orderData, isAlice = true) => {
 
       // Estimate gas
       const gasEstimate = await createOrderTx.estimateGas({ from: account.address });
-      const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
       console.log('Estimated gas for createOrder:', gasEstimate);
       console.log('Gas limit:', gasLimit);
@@ -738,7 +766,7 @@ export const acceptOrder = async (network, orderId, hashlock, timelock, isAlice 
       // Get RPC URL based on network
       let rpcUrl;
       if (network === NetworkEnum.POLYGON_AMOY) {
-        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+        rpcUrl = import.meta.env.VITE_POLYGON_AMOY_RPC_URL;
       } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
         rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
       }
@@ -788,7 +816,7 @@ export const acceptOrder = async (network, orderId, hashlock, timelock, isAlice 
 
       // Estimate gas
       const gasEstimate = await acceptOrderTx.estimateGas({ from: account.address });
-      const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 1.2x buffer
 
       console.log('Estimated gas for acceptOrder:', gasEstimate);
       console.log('Gas limit:', gasLimit);

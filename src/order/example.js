@@ -226,7 +226,7 @@ function demonstrateHTCLWorkflow() {
 
     console.log('\n📋 Step-by-step HTCL workflow:');
     console.log('1. Alice creates an order with LimitOrderProtocol');
-    console.log('2. Bob accepts the order and provides hashlock');
+    console.log('2. Bob accepts the order and waits for Alice deposit');
     console.log('3. Alice creates HTCL deposit on source chain with hashlock');
     console.log('4. Bob creates HTCL deposit on destination chain with hashlock');
     console.log('5. Alice withdraws from destination chain with secret before timelock');

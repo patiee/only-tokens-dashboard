@@ -11,6 +11,7 @@ import {
     createOrder,
     acceptOrder
 } from '../api/htcl.js';
+import { createOsmosisWallet } from '../utils/utils';
 
 // Environment variables
 const PRIVATE_KEY_1 = import.meta.env.VITE_PRIVATE_KEY_1; // Alice's private key
@@ -102,7 +103,7 @@ const LIMIT_ORDER_PROTOCOL_ABI = [
 const CONTRACT_ADDRESSES = {
     HTCL: '0x' + randomBytes(20).toString('hex'), // Mock address
     LIMIT_ORDER_PROTOCOL: '0x' + randomBytes(20).toString('hex'), // Mock address
-    COSMOS_CODE_ID: 12789
+    COSMOS_CODE_ID: 12792
 };
 
 // Utility functions
@@ -155,14 +156,14 @@ function hashSecret(secret, chainType = 'evm') {
 function getChainType(chainId) {
     if (typeof chainId === 'number') {
         // EVM chains typically have numeric IDs
-        if (chainId === 137 || chainId === 1 || chainId === 56) {
+        if (chainId === 137 || chainId === 1 || chainId === 56 || chainId === 11155111 || chainId === 80002) {
             return 'evm';
         } else if (chainId === 568) {
             return 'dogecoin';
         }
     } else if (typeof chainId === 'string') {
         // Cosmos chains typically have string IDs
-        if (chainId === 'osmosis-1' || chainId.startsWith('cosmos')) {
+        if (chainId === 'osmosis-1' || chainId === 'osmo-test-5' || chainId.startsWith('cosmos') || chainId.startsWith('osmo')) {
             return 'cosmos';
         }
     }
@@ -220,7 +221,9 @@ async function createEVMHTCL(bobAddress, timelock, hashlock, amount, isAlice = t
  */
 async function createCosmosHTCL(bobAddress, timelock, hashlock, amount, isAlice = true, tokenAddress) {
     try {
-        console.log(`${isAlice ? 'Alice' : 'Bob'} creating Cosmos HTCL contract... ${tokenAddress}`);
+        console.log(`${isAlice ? 'Alice' : 'Bob'} creating Cosmos HTCL contract...`);
+        console.log('Debug - createCosmosHTCL received tokenAddress:', tokenAddress);
+        console.log('Debug - createCosmosHTCL tokenAddress type:', typeof tokenAddress);
 
         if (!tokenAddress) {
             throw new Error('Token address is required for Cosmos HTCL creation');
@@ -316,12 +319,12 @@ async function withdrawFromEVMHTCL(contractAddress, secret, isAlice = false, net
  * @param {boolean} isAlice - Whether this is Alice's withdrawal
  * @returns {Promise<Object>} Withdrawal result
  */
-async function withdrawFromCosmosHTCL(contractAddress, secret, isAlice = false) {
+async function withdrawFromCosmosHTCL(contractAddress, secret, isAlice = false, asAlice = isAlice) {
     try {
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrawing from Cosmos HTCL...`);
 
         // Pass NetworkEnum constant directly to API
-        const result = await withdrawFromHTCL(NetworkEnum.OSMOSIS, contractAddress, secret, isAlice);
+        const result = await withdrawFromHTCL(NetworkEnum.OSMOSIS, contractAddress, secret, isAlice, asAlice);
 
         console.log(`${isAlice ? 'Alice' : 'Bob'} withdrew from Cosmos HTCL:`, {
             contractAddress,
@@ -421,6 +424,54 @@ async function acceptOrderWithProtocol(orderId, hashlock, timelock, isAlice = fa
     }
 }
 
+// Test function to verify parameter passing
+function testParameterPassing(dstTokenAddress) {
+    console.log('=== Parameter Passing Test ===');
+    console.log('dstTokenAddress:', dstTokenAddress);
+    console.log('dstTokenAddress type:', typeof dstTokenAddress);
+    console.log('dstTokenAddress === null:', dstTokenAddress === null);
+    console.log('dstTokenAddress === undefined:', dstTokenAddress === undefined);
+    console.log('dstTokenAddress === ""', dstTokenAddress === "");
+    console.log('dstTokenAddress length:', dstTokenAddress ? dstTokenAddress.length : 'N/A');
+    console.log('=== End Test ===');
+}
+
+// Function to get appropriate address for each chain type
+async function getAddressForChain(baseAddress, chainType, isAlice = true) {
+    if (chainType === 'evm') {
+        // For EVM chains, use the original EVM address
+        return baseAddress;
+    } else if (chainType === 'cosmos') {
+        // For Cosmos chains, generate real address from private key
+        try {
+            const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
+            console.log(`Debug - Private key for ${isAlice ? 'Alice' : 'Bob'}:`, privateKey ? 'Found' : 'Not found');
+            console.log(`Debug - Private key length:`, privateKey ? privateKey.length : 0);
+            console.log(`Debug - Private key starts with 0x:`, privateKey ? privateKey.startsWith('0x') : false);
+
+            if (!privateKey) {
+                throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'}`);
+            }
+
+            // Create wallet and get address
+            console.log('Debug - Creating Osmosis wallet...');
+            const wallet = await createOsmosisWallet(privateKey);
+            const [account] = await wallet.getAccounts();
+            console.log(`Debug - Generated ${isAlice ? 'Alice' : 'Bob'} Osmosis address:`, account.address);
+            return account.address;
+        } catch (error) {
+            console.error('Error generating Cosmos address:', error);
+            console.log('Debug - Falling back to mock address');
+            // Fallback to mock addresses if private key is not available
+            return isAlice ? 'osmo1raddhpf6vkxgh6g7sk6uy854glm9ng9ya89dx0' : 'osmo1ng2jl6298n0qyvseexumysk386eyw37d6mlcaa';
+        }
+    } else if (chainType === 'dogecoin') {
+        // For Dogecoin, we need a Dogecoin address
+        return isAlice ? 'D8KvHqJqJqJqJqJqJqJqJqJqJqJqJqJqJq' : 'D9KvHqJqJqJqJqJqJqJqJqJqJqJqJqJqJq';
+    }
+    return baseAddress; // fallback
+}
+
 /**
  * Execute cross-chain swap with real HTCL logic
  * @param {number} srcChainId - Source chain ID
@@ -442,11 +493,26 @@ export async function executeCrossChainSwapWithHTCL(
     bobAddress
 ) {
     try {
-        console.log('Startireating Cosmos HTCL contracCL...');
-        console.log('Parameters:', {
-            srcChainId, dstChainId, amount, srcTokenAddress, dstTokenAddress,
-            aliceAddress, bobAddress
-        });
+        console.log('Starting cross-chain swap with HTCL...');
+        console.log('Debug - srcChainId:', srcChainId, typeof srcChainId);
+        console.log('Debug - dstChainId:', dstChainId, typeof dstChainId);
+        console.log('Debug - getChainType(srcChainId):', getChainType(srcChainId));
+        console.log('Debug - getChainType(dstChainId):', getChainType(dstChainId));
+
+        // Test parameter passing
+        testParameterPassing(dstTokenAddress);
+
+        const parameters = {
+            srcChainId,
+            dstChainId,
+            amount,
+            srcTokenAddress,
+            dstTokenAddress,
+            aliceAddress,
+            bobAddress
+        };
+
+        console.log('Parameters:', parameters);
 
         // Step 1: Generate secret and hashlock
         const secret = generateSecret();
@@ -454,7 +520,15 @@ export async function executeCrossChainSwapWithHTCL(
         const hashlock = hashSecret(secret, chainType);
         const timelock = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 
-        console.log('Generated parameters:', { secret, hashlock, timelock });
+        console.log('Generated parameters:', {
+            secret: secret.substring(0, 20) + '...',
+            hashlock: hashlock.substring(0, 20) + '...',
+            timelock
+        });
+        console.log('Debug - Secret length:', secret.length);
+        console.log('Debug - Hashlock length:', hashlock.length);
+        console.log('Debug - Secret starts with 0x:', secret.startsWith('0x'));
+        console.log('Debug - Hashlock starts with 0x:', hashlock.startsWith('0x'));
 
         // Step 2: Alice creates order with LimitOrderProtocol
         console.log('\n=== Step 1: Alice creates order ===');
@@ -477,34 +551,61 @@ export async function executeCrossChainSwapWithHTCL(
         console.log('\n=== Step 2: Bob accepts order ===');
         const orderAcceptance = await acceptOrderWithProtocol(orderId, hashlock, timelock, false, srcChainId);
 
-        // Step 4: Alice creates HTCL deposit on source chain
+        // Step 3: Alice creates HTCL deposit on source chain
         console.log('\n=== Step 3: Alice creates HTCL on source chain ===');
+        console.log('Debug - Source chain type:', getChainType(srcChainId));
+        console.log('Debug - Source chain ID:', srcChainId);
+        console.log('Debug - Source chain ID type:', typeof srcChainId);
         let aliceSourceHTCL;
         if (getChainType(srcChainId) === 'evm') {
+            console.log('Debug - Creating EVM HTCL on source chain');
             aliceSourceHTCL = await createEVMHTCL(bobAddress, timelock, hashlock, amount, true, srcChainId);
         } else if (getChainType(srcChainId) === 'cosmos') {
-            aliceSourceHTCL = await createCosmosHTCL(bobAddress, timelock, hashlock, amount, true, srcTokenAddress);
+            console.log('Debug - Creating Cosmos HTCL on source chain');
+            const srcChainType = getChainType(srcChainId);
+            const bobSrcAddress = await getAddressForChain(bobAddress, srcChainType, false);
+            console.log('Debug - Using Bob address for source Cosmos:', bobSrcAddress);
+            aliceSourceHTCL = await createCosmosHTCL(bobSrcAddress, timelock, hashlock, amount, true, srcTokenAddress);
         } else if (getChainType(srcChainId) === 'dogecoin') {
             aliceSourceHTCL = await createDogecoinHTCL(bobAddress, timelock, hashlock, amount, true);
         }
 
-        // Step 4: Bob creates HTCL deposit on destination chain
+        // Step 4: Bob creates HTCL deposit on destination chain (so Alice can withdraw from it)
         console.log('\n=== Step 4: Bob creates HTCL on destination chain ===');
+        console.log('Debug - Destination chain type:', getChainType(dstChainId));
+        console.log('Debug - Destination chain ID:', dstChainId);
+        console.log('Debug - dstTokenAddress before createCosmosHTCL:', dstTokenAddress);
+        console.log('Debug - dstTokenAddress type:', typeof dstTokenAddress);
+        console.log('Debug - dstChainId:', dstChainId);
+        console.log('Debug - dstChainId type:', typeof dstChainId);
+        console.log('Debug - getChainType(dstChainId):', getChainType(dstChainId));
         let bobDestHTCL;
         if (getChainType(dstChainId) === 'evm') {
             bobDestHTCL = await createEVMHTCL(aliceAddress, timelock, hashlock, amount, false, dstChainId);
         } else if (getChainType(dstChainId) === 'cosmos') {
-            bobDestHTCL = await createCosmosHTCL(aliceAddress, timelock, hashlock, amount, false, dstTokenAddress);
+            const dstChainType = getChainType(dstChainId);
+            console.log('Debug - About to call getAddressForChain for Alice destination Cosmos');
+            // For Bob's HTCL on destination chain, pass Alice's address as 'bob' so she can withdraw
+            const aliceDstAddress = await getAddressForChain(aliceAddress, dstChainType, true);
+            console.log('Debug - Using Alice address for destination Cosmos (so she can withdraw):', aliceDstAddress);
+            bobDestHTCL = await createCosmosHTCL(aliceDstAddress, timelock, hashlock, amount, false, dstTokenAddress);
         } else if (getChainType(dstChainId) === 'dogecoin') {
             bobDestHTCL = await createDogecoinHTCL(aliceAddress, timelock, hashlock, amount, false);
         }
 
         // Step 5: Alice withdraws from destination chain with secret
         console.log('\n=== Step 5: Alice withdraws from destination chain ===');
+        console.log('Debug - dstChainId:', dstChainId);
+        console.log('Debug - dstChainId type:', typeof dstChainId);
+        console.log('Debug - getChainType(dstChainId):', getChainType(dstChainId));
+        console.log('Debug - bobDestHTCL:', bobDestHTCL);
         let aliceWithdrawal;
         if (getChainType(dstChainId) === 'evm') {
             aliceWithdrawal = await withdrawFromEVMHTCL(bobDestHTCL.contractAddress, secret, true, dstChainId);
         } else if (getChainType(dstChainId) === 'cosmos') {
+            // For EVM-to-Cosmos: Alice uses bobWithdraw(secret) since Bob created the HTCL
+            console.log('Debug - Alice calling bobWithdraw(secret) on Cosmos HTCL');
+            console.log('Debug - Alice withdrawal secret:', secret.substring(0, 20) + '...');
             aliceWithdrawal = await withdrawFromCosmosHTCL(bobDestHTCL.contractAddress, secret, true);
         } else if (getChainType(dstChainId) === 'dogecoin') {
             aliceWithdrawal = await withdrawFromDogecoinHTCL(bobDestHTCL.contractAddress, secret, true);
@@ -512,11 +613,22 @@ export async function executeCrossChainSwapWithHTCL(
 
         // Step 6: Bob withdraws from source chain with Alice's secret
         console.log('\n=== Step 6: Bob withdraws from source chain ===');
+        console.log('Debug - Bob using secret to withdraw from EVM HTCL:', secret);
+        console.log('Debug - Source chain type:', getChainType(srcChainId));
+        console.log('Debug - Alice source HTCL contract address:', aliceSourceHTCL.contractAddress);
         let bobWithdrawal;
         if (getChainType(srcChainId) === 'evm') {
+            // Bob uses bobWithdraw(secret) to withdraw from Alice's EVM HTCL
+            console.log('Debug - Bob withdrawing from EVM HTCL with secret');
             bobWithdrawal = await withdrawFromEVMHTCL(aliceSourceHTCL.contractAddress, secret, false, srcChainId);
         } else if (getChainType(srcChainId) === 'cosmos') {
+            console.log('Debug - Bob withdrawing from Cosmos HTCL with secret');
+            console.log('Debug - Bob withdrawal secret:', secret.substring(0, 20) + '...');
             bobWithdrawal = await withdrawFromCosmosHTCL(aliceSourceHTCL.contractAddress, secret, false);
+        } else if (getChainType(srcChainId) === 'evm') {
+            console.log('Debug - Bob withdrawing from EVM HTCL with secret');
+            console.log('Debug - Bob withdrawal secret:', secret.substring(0, 20) + '...');
+            bobWithdrawal = await withdrawFromEVMHTCL(aliceSourceHTCL.contractAddress, secret, false, srcChainId);
         } else if (getChainType(srcChainId) === 'dogecoin') {
             bobWithdrawal = await withdrawFromDogecoinHTCL(aliceSourceHTCL.contractAddress, secret, false);
         }
@@ -529,7 +641,7 @@ export async function executeCrossChainSwapWithHTCL(
             orderCreation,
             orderAcceptance,
             aliceSourceHTCL,
-            bobDestHTCL,
+            aliceDestHTCL,
             aliceWithdrawal,
             bobWithdrawal,
             status: 'completed',

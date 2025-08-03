@@ -5,7 +5,7 @@ pragma solidity ^0.8.19;
  * @title LimitOrderProtocol - Cross-Chain HTCL Order Management
  * @dev A smart contract that manages cross-chain HTCL orders
  * - Alice creates orders for cross-chain swaps
- * - Bob accepts orders and provides hashlock for coordination
+ * - Bob accepts orders and waits for Alice deposit
  * - Supports EVM, Cosmos, and Dogecoin chains
  */
 contract LimitOrderProtocol {
