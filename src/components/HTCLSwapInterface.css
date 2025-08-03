@@ -144,10 +144,40 @@
 }
 
 .token-address {
+    font-family: 'Courier New', monospace;
     font-size: 0.85rem;
     color: #7f8c8d;
-    font-family: 'Courier New', monospace;
     word-break: break-all;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e1e5e9;
+}
+
+.token-address-input {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #2c3e50;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e1e5e9;
+    width: 100%;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.token-address-input:focus {
+    outline: none;
+    border-color: #3498db;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.token-address-input option {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 8px;
 }
 
 /* Addresses Section */

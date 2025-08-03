@@ -302,9 +302,10 @@ class DogecoinHTCL {
     });
   }
 
-  async createFundingTransaction(script, amount, privateKey) {
+  async createFundingTransaction(script, amount, isAlice = true) {
     return new Promise((resolve, reject) => {
       const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const privateKey = isAlice ? process.env.VITE_PRIVATE_KEY_1 : process.env.VITE_PRIVATE_KEY_2;
       const pythonProcess = spawn(this.pythonPath, [
         scriptPath,
         '--action', 'fund',
@@ -339,9 +340,10 @@ class DogecoinHTCL {
     });
   }
 
-  async createBobWithdrawal(script, secret, amount, privateKey, address) {
+  async createBobWithdrawal(script, secret, amount, address, isAlice = false) {
     return new Promise((resolve, reject) => {
       const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const privateKey = isAlice ? process.env.VITE_PRIVATE_KEY_1 : process.env.VITE_PRIVATE_KEY_2;
       const pythonProcess = spawn(this.pythonPath, [
         scriptPath,
         '--action', 'bob-withdraw',
@@ -378,9 +380,10 @@ class DogecoinHTCL {
     });
   }
 
-  async createAliceWithdrawal(script, amount, privateKey, address) {
+  async createAliceWithdrawal(script, amount, address, isAlice = true) {
     return new Promise((resolve, reject) => {
       const scriptPath = path.join(this.scriptDir, 'htcl_transaction.py');
+      const privateKey = isAlice ? process.env.VITE_PRIVATE_KEY_1 : process.env.VITE_PRIVATE_KEY_2;
       const pythonProcess = spawn(this.pythonPath, [
         scriptPath,
         '--action', 'alice-withdraw',
@@ -467,8 +470,8 @@ app.post('/api/dogecoin/htcl/create-script', async (req, res) => {
 
 app.post('/api/dogecoin/htcl/fund', async (req, res) => {
   try {
-    const { script, amount, privateKey } = req.body;
-    const result = await dogecoinHTCL.createFundingTransaction(script, amount, privateKey);
+    const { script, amount, isAlice = true } = req.body;
+    const result = await dogecoinHTCL.createFundingTransaction(script, amount, isAlice);
     res.json(result);
   } catch (error) {
     console.error('Error funding Dogecoin HTCL:', error);
@@ -478,13 +481,13 @@ app.post('/api/dogecoin/htcl/fund', async (req, res) => {
 
 app.post('/api/dogecoin/htcl/withdraw', async (req, res) => {
   try {
-    const { script, secret, amount, privateKey, address, isAlice } = req.body;
+    const { script, secret, amount, address, isAlice } = req.body;
 
     let result;
     if (isAlice) {
-      result = await dogecoinHTCL.createAliceWithdrawal(script, amount, privateKey, address);
+      result = await dogecoinHTCL.createAliceWithdrawal(script, amount, address, isAlice);
     } else {
-      result = await dogecoinHTCL.createBobWithdrawal(script, secret, amount, privateKey, address);
+      result = await dogecoinHTCL.createBobWithdrawal(script, secret, amount, address, isAlice);
     }
 
     res.json(result);

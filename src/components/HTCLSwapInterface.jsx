@@ -13,9 +13,52 @@ const HTCLSwapInterface = () => {
     const [destAmount, setDestAmount] = useState('1000000');
     const [aliceAddress, setAliceAddress] = useState('0x3cb04058AF6Af29cB6463415B39B6C571458Ac04');
     const [bobAddress, setBobAddress] = useState('0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6');
+    const [srcTokenAddress, setSrcTokenAddress] = useState('');
+    const [dstTokenAddress, setDstTokenAddress] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+
+    // Get available tokens for a specific network
+    const getAvailableTokens = (network) => {
+        console.log('getAvailableTokens called with network:', network, typeof network);
+        console.log('NetworkEnum.ETHEREUM_SEPOLIA:', NetworkEnum.ETHEREUM_SEPOLIA);
+        console.log('NetworkEnum.POLYGON_AMOY:', NetworkEnum.POLYGON_AMOY);
+        console.log('NetworkEnum.OSMOSIS:', NetworkEnum.OSMOSIS);
+        console.log('NetworkEnum.DOGECOIN:', NetworkEnum.DOGECOIN);
+
+        if (network === NetworkEnum.OSMOSIS || network === 'osmo-test-5') {
+            const tokens = [
+                { value: TOKENS[NetworkEnum.OSMOSIS].USDC, label: 'USDC' },
+                { value: TOKENS[NetworkEnum.OSMOSIS].OSMO, label: 'OSMO' },
+                { value: TOKENS[NetworkEnum.OSMOSIS].ATOM, label: 'ATOM' }
+            ];
+            console.log('Osmosis tokens:', tokens);
+            return tokens;
+        } else if (network === NetworkEnum.POLYGON_AMOY || network === 80001) {
+            const tokens = [
+                { value: TOKENS[NetworkEnum.POLYGON_AMOY].USDC, label: 'USDC' },
+                { value: TOKENS[NetworkEnum.POLYGON_AMOY].MATIC, label: 'MATIC' }
+            ];
+            console.log('Polygon tokens:', tokens);
+            return tokens;
+        } else if (network === NetworkEnum.ETHEREUM_SEPOLIA || network === 11155111) {
+            const tokens = [
+                { value: TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].USDC, label: 'USDC' },
+                { value: TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].ETH, label: 'ETH' }
+            ];
+            console.log('Sepolia tokens:', tokens);
+            return tokens;
+        } else if (network === NetworkEnum.DOGECOIN || network === 568) {
+            const tokens = [
+                { value: TOKENS[NetworkEnum.DOGECOIN].DOGE, label: 'DOGE' }
+            ];
+            console.log('Dogecoin tokens:', tokens);
+            return tokens;
+        }
+        console.log('No tokens found for network:', network);
+        return [];
+    };
 
     // Debug NetworkEnum values on component mount
     useEffect(() => {
@@ -28,6 +71,18 @@ const HTCLSwapInterface = () => {
         console.log('TOKENS[NetworkEnum.OSMOSIS]:', TOKENS[NetworkEnum.OSMOSIS]);
         console.log('TOKENS[NetworkEnum.POLYGON_AMOY]:', TOKENS[NetworkEnum.POLYGON_AMOY]);
         console.log('=== End Debug ===');
+
+        // Set initial token addresses
+        const initialSrcTokens = getAvailableTokens(NetworkEnum.POLYGON_AMOY);
+        const initialDstTokens = getAvailableTokens(NetworkEnum.OSMOSIS);
+        console.log('Initial src tokens:', initialSrcTokens);
+        console.log('Initial dst tokens:', initialDstTokens);
+        if (initialSrcTokens.length > 0) {
+            setSrcTokenAddress(initialSrcTokens[0].value);
+        }
+        if (initialDstTokens.length > 0) {
+            setDstTokenAddress(initialDstTokens[0].value);
+        }
     }, []);
 
     // All available networks
@@ -68,10 +123,30 @@ const HTCLSwapInterface = () => {
     // Handle source network change
     const handleSourceNetworkChange = (network) => {
         setSourceNetwork(network);
+        // Update source token address based on new network
+        const availableTokens = getAvailableTokens(network);
+        if (availableTokens.length > 0) {
+            setSrcTokenAddress(availableTokens[0].value);
+        }
         // Reset destination network if current selection is not valid for new source
         const availableDestNetworks = getAvailableDestNetworks(network);
         if (!availableDestNetworks.find(net => net.value === destNetwork)) {
             setDestNetwork(availableDestNetworks[0].value);
+            // Also update destination token address
+            const destAvailableTokens = getAvailableTokens(availableDestNetworks[0].value);
+            if (destAvailableTokens.length > 0) {
+                setDstTokenAddress(destAvailableTokens[0].value);
+            }
+        }
+    };
+
+    // Handle destination network change
+    const handleDestNetworkChange = (network) => {
+        setDestNetwork(network);
+        // Update destination token address based on new network
+        const availableTokens = getAvailableTokens(network);
+        if (availableTokens.length > 0) {
+            setDstTokenAddress(availableTokens[0].value);
         }
     };
 
@@ -83,36 +158,11 @@ const HTCLSwapInterface = () => {
         console.log('TOKENS[sourceNetwork]:', TOKENS[sourceNetwork]);
         console.log('TOKENS[destNetwork]:', TOKENS[destNetwork]);
 
-        // Get token addresses with proper fallbacks
-        let srcToken = '0x...';
-        let dstToken = '0x...';
+        // Use state values instead of calculating
+        console.log('Final srcToken:', srcTokenAddress);
+        console.log('Final dstToken:', dstTokenAddress);
 
-        // Handle source network
-        if (sourceNetwork === NetworkEnum.OSMOSIS) {
-            srcToken = TOKENS[NetworkEnum.OSMOSIS].USDC;
-        } else if (sourceNetwork === NetworkEnum.POLYGON_AMOY) {
-            srcToken = TOKENS[NetworkEnum.POLYGON_AMOY].USDC;
-        } else if (sourceNetwork === NetworkEnum.ETHEREUM_SEPOLIA) {
-            srcToken = TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].USDC;
-        } else if (sourceNetwork === NetworkEnum.DOGECOIN) {
-            srcToken = TOKENS[NetworkEnum.DOGECOIN].DOGE;
-        }
-
-        // Handle destination network
-        if (destNetwork === NetworkEnum.OSMOSIS) {
-            dstToken = TOKENS[NetworkEnum.OSMOSIS].USDC;
-        } else if (destNetwork === NetworkEnum.POLYGON_AMOY) {
-            dstToken = TOKENS[NetworkEnum.POLYGON_AMOY].USDC;
-        } else if (destNetwork === NetworkEnum.ETHEREUM_SEPOLIA) {
-            dstToken = TOKENS[NetworkEnum.ETHEREUM_SEPOLIA].USDC;
-        } else if (destNetwork === NetworkEnum.DOGECOIN) {
-            dstToken = TOKENS[NetworkEnum.DOGECOIN].DOGE;
-        }
-
-        console.log('Final srcToken:', srcToken);
-        console.log('Final dstToken:', dstToken);
-
-        return { srcToken, dstToken };
+        return { srcToken: srcTokenAddress, dstToken: dstTokenAddress };
     };
 
     const getChainLabel = (chainId) => {
@@ -224,10 +274,20 @@ const HTCLSwapInterface = () => {
 
                     <div className="swap-section">
                         <label className="swap-label">From Token</label>
-                        <div className="token-display">
-                            <span className="token-name">{getTokenLabel(sourceNetwork)}</span>
-                            <span className="token-address">{getTokenAddresses().srcToken}</span>
-                        </div>
+                        <select
+                            value={srcTokenAddress || ''}
+                            onChange={(e) => {
+                                console.log('From token changed to:', e.target.value);
+                                setSrcTokenAddress(e.target.value);
+                            }}
+                            className="token-address-input"
+                        >
+                            {getAvailableTokens(sourceNetwork).map(token => (
+                                <option key={token.value} value={token.value}>
+                                    {token.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="swap-section">
@@ -246,7 +306,7 @@ const HTCLSwapInterface = () => {
                         <label className="swap-label">To Network</label>
                         <select
                             value={destNetwork}
-                            onChange={(e) => setDestNetwork(Number(e.target.value))}
+                            onChange={(e) => handleDestNetworkChange(Number(e.target.value))}
                             className="swap-input"
                         >
                             {availableDestNetworks.map(network => (
@@ -259,10 +319,20 @@ const HTCLSwapInterface = () => {
 
                     <div className="swap-section">
                         <label className="swap-label">To Token</label>
-                        <div className="token-display">
-                            <span className="token-name">{getTokenLabel(destNetwork)}</span>
-                            <span className="token-address">{getTokenAddresses().dstToken}</span>
-                        </div>
+                        <select
+                            value={dstTokenAddress || ''}
+                            onChange={(e) => {
+                                console.log('To token changed to:', e.target.value);
+                                setDstTokenAddress(e.target.value);
+                            }}
+                            className="token-address-input"
+                        >
+                            {getAvailableTokens(destNetwork).map(token => (
+                                <option key={token.value} value={token.value}>
+                                    {token.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="swap-section">

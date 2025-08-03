@@ -6,6 +6,7 @@ import { coins } from '@cosmjs/amino';
 import { NetworkEnum } from '@1inch/fusion-sdk';
 
 import htclArtifact from '../../artifacts/contracts/HTCL.sol/HTCL.json' assert { type: 'json' };
+import limitOrderArtifact from '../../artifacts/contracts/LimitOrderProtocol.sol/LimitOrderProtocol.json' assert { type: 'json' };
 
 const PROXY_BASE_URL = 'http://localhost:3001/api'
 
@@ -104,13 +105,13 @@ export const sendTransaction = async (network, transaction) => {
 }
 
 // Create HTCL contract using real deployment
-export const createHTCLContract = async (network, bobAddress, timelock, hashlock, amount, tokenType = 'native', tokenAddress = null) => {
+export const createHTCLContract = async (network, bobAddress, timelock, hashlock, amount, tokenAddress = null, isAlice = true) => {
   try {
-    console.log('Creating HTCL contract via API...')
+    console.log(`${isAlice ? 'Alice' : 'Bob'} creating HTCL contract via API...`);
 
     // For EVM chains, we can deploy the actual contract
     if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
-      console.log('Deploying real HTCL contract to', network);
+      console.log(`${isAlice ? 'Alice' : 'Bob'} deploying real HTCL contract to`, network);
 
       // Get RPC URL based on network
       let rpcUrl;
@@ -127,17 +128,17 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       // Initialize Web3
       const web3 = new Web3(rpcUrl);
 
-      // Get private key from environment
-      const privateKey = import.meta.env.VITE_PRIVATE_KEY_1;
+      // Get private key from environment based on isAlice flag
+      const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for deployment');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} deployment`);
       }
 
       // Setup account
       const account = web3.eth.accounts.privateKeyToAccount(privateKey);
       web3.eth.accounts.wallet.add(account);
 
-      console.log('Deploying from address:', account.address);
+      console.log(`${isAlice ? 'Alice' : 'Bob'} deploying from address:`, account.address);
       console.log('To Bob address:', bobAddress);
       console.log('Timelock:', timelock);
       console.log('Hashlock:', hashlock);
@@ -180,7 +181,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         maxPriorityFeePerGas: maxPriorityFeePerGas
       });
 
-      console.log('HTCL contract deployed successfully!');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} deployed HTCL contract successfully!`);
       console.log('Contract address:', tx.contractAddress);
       console.log('Transaction hash:', tx.transactionHash);
 
@@ -197,28 +198,28 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
 
     // For Osmosis/Cosmos chains, instantiate CosmWasm contract
     if (network === NetworkEnum.OSMOSIS) {
-      console.log('Instantiating CosmWasm HTCL contract on Osmosis');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} instantiating CosmWasm HTCL contract on Osmosis`);
 
-      // Get private key from environment
-      const privateKey = import.meta.env.VITE_PRIVATE_KEY_1;
+      // Get private key from environment based on isAlice flag
+      const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for Osmosis deployment');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} Osmosis deployment`);
       }
 
       // Setup wallet
       const wallet = await createOsmosisWallet(privateKey);
 
       const [account] = await wallet.getAccounts();
-      console.log('Instantiating from address:', account.address);
+      console.log(`${isAlice ? 'Alice' : 'Bob'} instantiating from address:`, account.address);
       console.log('To Bob address:', bobAddress);
       console.log('Timelock:', timelock);
       console.log('Hashlock:', hashlock);
       console.log('Amount:', amount);
-      console.log('Token type:', tokenType);
-      console.log('Token address:', tokenAddress);
+      console.log('Token address received:', tokenAddress);
+      console.log('Token address type:', typeof tokenAddress);
 
       // Determine token type based on token address format
-      let actualTokenType = tokenType;
+      let actualTokenType = 'native'; // Default to native
       if (tokenAddress) {
         // Check if it's a native token (IBC or short denom)
         if (tokenAddress.startsWith('ibc/') || tokenAddress.length < 10) {
@@ -230,7 +231,11 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       }
 
       // Setup client
-      const rpcUrl = import.meta.env.VITE_OSMO_RPC;
+      const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC;
+      if (!rpcUrl) {
+        throw new Error('No Osmosis RPC URL found. Please set VITE_OSMOSIS_RPC environment variable.');
+      }
+      console.log('Using RPC URL:', rpcUrl);
       const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
 
       // Prepare instantiate message
@@ -259,7 +264,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
         { admin: account.address, funds: funds }
       );
 
-      console.log('HTCL contract instantiated successfully!');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} instantiated HTCL contract successfully!`);
       console.log('Contract address:', result.contractAddress);
       console.log('Transaction hash:', result.transactionHash);
 
@@ -277,12 +282,12 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
 
     // For Dogecoin, use real HTCL implementation
     if (network === NetworkEnum.DOGECOIN) {
-      console.log('Creating real Dogecoin HTCL contract');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} creating real Dogecoin HTCL contract`);
 
-      // Get private key from environment
-      const privateKey = import.meta.env.VITE_PRIVATE_KEY_1;
+      // Get private key from environment based on isAlice flag
+      const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for Dogecoin deployment');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} Dogecoin deployment`);
       }
 
       // Generate Alice's and Bob's public keys from private keys (simplified)
@@ -293,7 +298,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       const currentBlock = await getDogecoinBlockHeight();
       const timelock = currentBlock + 1000; // 1000 blocks from now
 
-      console.log('Creating Dogecoin HTCL with:');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} creating Dogecoin HTCL with:`);
       console.log('- Alice pubkey:', alicePubkey);
       console.log('- Bob pubkey:', bobPubkey);
       console.log('- Timelock:', timelock);
@@ -311,7 +316,7 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
       // Create funding transaction
       const fundingTx = await fundDogecoinHTCL(script, amount, privateKey);
 
-      console.log('Dogecoin HTCL funding transaction created:', {
+      console.log(`${isAlice ? 'Alice' : 'Bob'} created Dogecoin HTCL funding transaction:`, {
         txid: fundingTx.txid,
         p2sh_address: script.p2sh_address,
         amount: amount
@@ -330,11 +335,11 @@ export const createHTCLContract = async (network, bobAddress, timelock, hashlock
     }
 
     // For other networks, use mock implementation
-    console.log('Using mock HTCL creation for network:', network);
+    console.log(`${isAlice ? 'Alice' : 'Bob'} using mock HTCL creation for network:`, network);
     const mockContractAddress = '0x' + Math.random().toString(16).substr(2, 40);
     const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64);
 
-    console.log('Mock HTCL created:', {
+    console.log(`${isAlice ? 'Alice' : 'Bob'} created mock HTCL:`, {
       contractAddress: mockContractAddress,
       txHash: mockTxHash,
       bobAddress,
@@ -366,7 +371,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
     // For EVM chains, we can use real contract interaction
     if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
-      console.log('Calling real HTCL contract on', network);
+      console.log(`${isAlice ? 'Alice' : 'Bob'} calling real HTCL contract on`, network);
 
       // Get RPC URL based on network
       let rpcUrl;
@@ -383,10 +388,10 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       // Initialize Web3
       const web3 = new Web3(rpcUrl);
 
-      // Get private key from environment
+      // Get private key from environment based on isAlice flag
       const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for withdrawal');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} withdrawal`);
       }
 
       // Setup account
@@ -465,12 +470,12 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
     // For Osmosis/Cosmos chains, use CosmWasm contract calls
     if (network === NetworkEnum.OSMOSIS) {
-      console.log('Calling CosmWasm HTCL contract on Osmosis');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} calling CosmWasm HTCL contract on Osmosis`);
 
-      // Get private key from environment
+      // Get private key from environment based on isAlice flag
       const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for Osmosis withdrawal');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} Osmosis withdrawal`);
       }
 
       // Setup wallet
@@ -480,7 +485,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
       console.log('Using address:', account.address);
 
       // Setup client
-      const rpcUrl = import.meta.env.VITE_OSMO_RPC;
+      const rpcUrl = import.meta.env.VITE_OSMOSIS_RPC;
       const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, wallet);
 
       let executeMsg;
@@ -525,12 +530,12 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
 
     // For Dogecoin, use real HTCL withdrawal
     if (network === NetworkEnum.DOGECOIN) {
-      console.log('Creating real Dogecoin HTCL withdrawal');
+      console.log(`${isAlice ? 'Alice' : 'Bob'} creating real Dogecoin HTCL withdrawal`);
 
-      // Get private key from environment
+      // Get private key from environment based on isAlice flag
       const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
       if (!privateKey) {
-        throw new Error('No private key found for Dogecoin withdrawal');
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} Dogecoin withdrawal`);
       }
 
       // Generate Alice's and Bob's public keys from private keys (simplified)
@@ -580,7 +585,7 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
     }
 
     // For other chains, use mock withdrawal
-    console.log('Using mock withdrawal for chain:', network);
+    console.log(`${isAlice ? 'Alice' : 'Bob'} using mock withdrawal for chain:`, network);
     let mockTxHash;
     if (network === NetworkEnum.OSMOSIS) {
       mockTxHash = 'osmo' + Math.random().toString(16).substr(2, 64);
@@ -606,46 +611,219 @@ export const withdrawFromHTCL = async (network, contractAddress, secret, isAlice
   }
 }
 
-// Create order with LimitOrderProtocol (mocked)
-export const createOrder = async (network, orderData) => {
+// Create order with LimitOrderProtocol (real contract)
+export const createOrder = async (network, orderData, isAlice = true) => {
   try {
-    console.log('Creating order with LimitOrderProtocol via API...')
+    console.log(`${isAlice ? 'Alice' : 'Bob'} creating order with LimitOrderProtocol via API...`)
 
-    // Mock order creation
-    const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64)
+    // For EVM chains, use real contract
+    if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
+      console.log(`${isAlice ? 'Alice' : 'Bob'} creating order on`, network);
 
-    console.log('Order created (mocked):', {
+      // Get RPC URL based on network
+      let rpcUrl;
+      if (network === NetworkEnum.POLYGON_AMOY) {
+        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+      } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
+        rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
+      }
+
+      if (!rpcUrl) {
+        throw new Error(`No RPC URL found for network: ${network}`);
+      }
+
+      // Initialize Web3
+      const web3 = new Web3(rpcUrl);
+
+      // Get private key from environment based on isAlice flag
+      const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
+      if (!privateKey) {
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} order creation`);
+      }
+
+      // Setup account
+      const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+      web3.eth.accounts.wallet.add(account);
+
+      console.log(`${isAlice ? 'Alice' : 'Bob'} creating order from address:`, account.address);
+      console.log('Order data:', orderData);
+
+      // Create contract instance - you'll need to deploy this contract first
+      // For now, we'll use a mock address - you should replace this with the actual deployed contract address
+      const contractAddress = '0x0000000000000000000000000000000000000000'; // Replace with actual deployed address
+      const contract = new web3.eth.Contract(limitOrderArtifact.abi, contractAddress);
+
+      // Get gas price
+      const gasPrice = await web3.eth.getGasPrice();
+      const maxFeePerGas = web3.utils.toWei('50', 'gwei');
+      const maxPriorityFeePerGas = web3.utils.toWei('30', 'gwei');
+
+      console.log('Gas price:', gasPrice);
+      console.log('Max fee per gas:', maxFeePerGas);
+      console.log('Max priority fee per gas:', maxPriorityFeePerGas);
+
+      // Create order using contract method
+      const createOrderTx = contract.methods.createOrder(
+        orderData.sourceChainId,
+        orderData.destChainId,
+        orderData.sourceWalletAddress,
+        orderData.destWalletAddress,
+        orderData.sourceToken,
+        orderData.destToken,
+        orderData.sourceAmount,
+        orderData.destAmount,
+        orderData.deadline
+      );
+
+      // Estimate gas
+      const gasEstimate = await createOrderTx.estimateGas({ from: account.address });
+      const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+
+      console.log('Estimated gas for createOrder:', gasEstimate);
+      console.log('Gas limit:', gasLimit);
+
+      // Send transaction
+      const tx = await createOrderTx.send({
+        from: account.address,
+        gas: gasLimit,
+        maxFeePerGas: maxFeePerGas,
+        maxPriorityFeePerGas: maxPriorityFeePerGas
+      });
+
+      console.log(`${isAlice ? 'Alice' : 'Bob'} created order successfully!`);
+      console.log('Transaction hash:', tx.transactionHash);
+
+      // Get order ID from transaction receipt (you might need to parse events)
+      const orderId = 0; // This should be extracted from the OrderCreated event
+
+      return {
+        orderId,
+        txHash: tx.transactionHash,
+        orderData,
+        network
+      };
+    }
+
+    // For other networks, use mock implementation
+    console.log(`${isAlice ? 'Alice' : 'Bob'} using mock order creation for network:`, network);
+    const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64);
+
+    console.log(`${isAlice ? 'Alice' : 'Bob'} created order (mocked):`, {
       network,
       txHash: mockTxHash,
       orderData
-    })
+    });
 
     return {
+      orderId: 0,
       txHash: mockTxHash,
       orderData,
       network
-    }
+    };
   } catch (error) {
-    console.error('Error creating order:', error)
-    throw error
+    console.error('Error creating order:', error);
+    throw error;
   }
 }
 
-// Accept order with LimitOrderProtocol (mocked)
-export const acceptOrder = async (network, orderId, hashlock, timelock) => {
+// Accept order with LimitOrderProtocol (real contract)
+export const acceptOrder = async (network, orderId, hashlock, timelock, isAlice = false) => {
   try {
-    console.log('Accepting order with LimitOrderProtocol via API...')
+    console.log(`${isAlice ? 'Alice' : 'Bob'} accepting order with LimitOrderProtocol via API...`)
 
-    // Mock order acceptance
-    const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64)
+    // For EVM chains, use real contract
+    if (network === NetworkEnum.POLYGON_AMOY || network === NetworkEnum.ETHEREUM_SEPOLIA) {
+      console.log(`${isAlice ? 'Alice' : 'Bob'} accepting order on`, network);
 
-    console.log('Order accepted (mocked):', {
+      // Get RPC URL based on network
+      let rpcUrl;
+      if (network === NetworkEnum.POLYGON_AMOY) {
+        rpcUrl = import.meta.env.VITE_POLYGON_RPC;
+      } else if (network === NetworkEnum.ETHEREUM_SEPOLIA) {
+        rpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
+      }
+
+      if (!rpcUrl) {
+        throw new Error(`No RPC URL found for network: ${network}`);
+      }
+
+      // Initialize Web3
+      const web3 = new Web3(rpcUrl);
+
+      // Get private key from environment based on isAlice flag
+      const privateKey = isAlice ? import.meta.env.VITE_PRIVATE_KEY_1 : import.meta.env.VITE_PRIVATE_KEY_2;
+      if (!privateKey) {
+        throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} order acceptance`);
+      }
+
+      // Setup account
+      const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+      web3.eth.accounts.wallet.add(account);
+
+      console.log(`${isAlice ? 'Alice' : 'Bob'} accepting order from address:`, account.address);
+      console.log('Order ID:', orderId);
+      console.log('Hashlock:', hashlock);
+      console.log('Timelock:', timelock);
+
+      // Create contract instance - you'll need to deploy this contract first
+      // For now, we'll use a mock address - you should replace this with the actual deployed contract address
+      const contractAddress = '0x0000000000000000000000000000000000000000'; // Replace with actual deployed address
+      const contract = new web3.eth.Contract(limitOrderArtifact.abi, contractAddress);
+
+      // Get gas price
+      const gasPrice = await web3.eth.getGasPrice();
+      const maxFeePerGas = web3.utils.toWei('50', 'gwei');
+      const maxPriorityFeePerGas = web3.utils.toWei('30', 'gwei');
+
+      console.log('Gas price:', gasPrice);
+      console.log('Max fee per gas:', maxFeePerGas);
+      console.log('Max priority fee per gas:', maxPriorityFeePerGas);
+
+      // Accept order using contract method
+      const acceptOrderTx = contract.methods.acceptOrder(
+        orderId,
+        hashlock,
+        timelock
+      );
+
+      // Estimate gas
+      const gasEstimate = await acceptOrderTx.estimateGas({ from: account.address });
+      const gasLimit = Math.floor(gasEstimate * 1.2); // 1.2x buffer
+
+      console.log('Estimated gas for acceptOrder:', gasEstimate);
+      console.log('Gas limit:', gasLimit);
+
+      // Send transaction
+      const tx = await acceptOrderTx.send({
+        from: account.address,
+        gas: gasLimit,
+        maxFeePerGas: maxFeePerGas,
+        maxPriorityFeePerGas: maxPriorityFeePerGas
+      });
+
+      console.log(`${isAlice ? 'Alice' : 'Bob'} accepted order successfully!`);
+      console.log('Transaction hash:', tx.transactionHash);
+
+      return {
+        orderId,
+        txHash: tx.transactionHash,
+        hashlock,
+        timelock,
+        network
+      };
+    }
+
+    // For other networks, use mock implementation
+    console.log(`${isAlice ? 'Alice' : 'Bob'} using mock order acceptance for network:`, network);
+    const mockTxHash = '0x' + Math.random().toString(16).substr(2, 64);
+
+    console.log(`${isAlice ? 'Alice' : 'Bob'} accepted order (mocked):`, {
       network,
       orderId,
       txHash: mockTxHash,
       hashlock,
       timelock
-    })
+    });
 
     return {
       orderId,
@@ -653,10 +831,10 @@ export const acceptOrder = async (network, orderId, hashlock, timelock) => {
       hashlock,
       timelock,
       network
-    }
+    };
   } catch (error) {
-    console.error('Error accepting order:', error)
-    throw error
+    console.error('Error accepting order:', error);
+    throw error;
   }
 }
 
@@ -675,11 +853,11 @@ async function createDogecoinHTCLScript(alicePubkey, bobPubkey, timelock, hashlo
   return response.json();
 }
 
-async function fundDogecoinHTCL(script, amount, privateKey) {
+async function fundDogecoinHTCL(script, amount) {
   const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/fund`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ script, amount, privateKey })
+    body: JSON.stringify({ script, amount })
   });
 
   if (!response.ok) {
@@ -689,11 +867,11 @@ async function fundDogecoinHTCL(script, amount, privateKey) {
   return response.json();
 }
 
-async function withdrawFromDogecoinHTCL(script, secret, amount, privateKey, address, isAlice) {
+async function withdrawFromDogecoinHTCL(script, secret, amount, address, isAlice) {
   const response = await fetch(`${PROXY_BASE_URL}/dogecoin/htcl/withdraw`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ script, secret, amount, privateKey, address, isAlice })
+    body: JSON.stringify({ script, secret, amount, address, isAlice })
   });
 
   if (!response.ok) {

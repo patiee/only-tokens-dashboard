@@ -27,14 +27,20 @@ const sepoliaWeb3 = new Web3(ENV_VARS.SEPOLIA_RPC_URL);
 /**
  * Deploy HTCL contract to a network
  */
-async function deployHTCLContract(web3, privateKey, bobAddress, timelock, hashlock, amount) {
+async function deployHTCLContract(web3, isAlice = true, bobAddress, timelock, hashlock, amount) {
     try {
-        console.log('Deploying HTCL contract...');
+        console.log(`${isAlice ? 'Alice' : 'Bob'} deploying HTCL contract...`);
+
+        // Get private key from environment based on isAlice flag
+        const privateKey = isAlice ? ENV_VARS.PRIVATE_KEY_1 : ENV_VARS.PRIVATE_KEY_2;
+        if (!privateKey) {
+            throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} deployment`);
+        }
 
         const account = web3.eth.accounts.privateKeyToAccount(privateKey);
         web3.eth.accounts.wallet.add(account);
 
-        console.log('Deploying from address:', account.address);
+        console.log(`${isAlice ? 'Alice' : 'Bob'} deploying from address:`, account.address);
         console.log('To Bob address:', bobAddress);
         console.log('Timelock:', timelock);
         console.log('Hashlock:', hashlock);
@@ -77,7 +83,7 @@ async function deployHTCLContract(web3, privateKey, bobAddress, timelock, hashlo
             maxPriorityFeePerGas: maxPriorityFeePerGas
         });
 
-        console.log('HTCL contract deployed successfully!');
+        console.log(`${isAlice ? 'Alice' : 'Bob'} deployed HTCL contract successfully!`);
         console.log('Contract address:', tx.contractAddress);
         console.log('Transaction hash:', tx.transactionHash);
 
@@ -122,7 +128,7 @@ async function deployAllContracts() {
             try {
                 deployments.polygon = await deployHTCLContract(
                     polygonWeb3,
-                    ENV_VARS.PRIVATE_KEY_1,
+                    true, // isAlice
                     bobAddress,
                     timelock,
                     hashlock,
@@ -136,12 +142,12 @@ async function deployAllContracts() {
         }
 
         // Deploy to Sepolia (if private key is available)
-        if (ENV_VARS.PRIVATE_KEY_1 && ENV_VARS.SEPOLIA_RPC_URL) {
+        if (ENV_VARS.PRIVATE_KEY_2 && ENV_VARS.SEPOLIA_RPC_URL) {
             console.log('\n=== Deploying to Sepolia ===');
             try {
                 deployments.sepolia = await deployHTCLContract(
                     sepoliaWeb3,
-                    ENV_VARS.PRIVATE_KEY_1,
+                    false, // isAlice
                     bobAddress,
                     timelock,
                     hashlock,

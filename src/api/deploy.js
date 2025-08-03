@@ -20,16 +20,22 @@ const sepoliaWeb3 = new Web3(ENV_VARS.SEPOLIA_RPC_URL);
 /**
  * Deploy HTCL contract to a network
  * @param {Web3} web3 - Web3 instance
- * @param {string} privateKey - Private key for deployment
+ * @param {boolean} isAlice - Whether this is Alice's deployment
  * @param {string} bobAddress - Bob's address
  * @param {number} timelock - Timelock expiration
  * @param {string} hashlock - Hashlock
  * @param {string} amount - Amount to deposit
  * @returns {Promise<Object>} Deployment result
  */
-async function deployHTCLContract(web3, privateKey, bobAddress, timelock, hashlock, amount) {
+async function deployHTCLContract(web3, isAlice = true, bobAddress, timelock, hashlock, amount) {
     try {
-        console.log('Deploying HTCL contract...');
+        console.log(`${isAlice ? 'Alice' : 'Bob'} deploying HTCL contract...`);
+
+        // Get private key from environment based on isAlice flag
+        const privateKey = isAlice ? ENV_VARS.PRIVATE_KEY_1 : ENV_VARS.PRIVATE_KEY_2;
+        if (!privateKey) {
+            throw new Error(`No private key found for ${isAlice ? 'Alice' : 'Bob'} deployment`);
+        }
 
         const account = web3.eth.accounts.privateKeyToAccount(privateKey);
         web3.eth.accounts.wallet.add(account);
@@ -61,7 +67,7 @@ async function deployHTCLContract(web3, privateKey, bobAddress, timelock, hashlo
             maxPriorityFeePerGas: maxPriorityFeePerGas
         });
 
-        console.log('HTCL contract deployed:', {
+        console.log(`${isAlice ? 'Alice' : 'Bob'} deployed HTCL contract:`, {
             contractAddress: tx.contractAddress,
             txHash: tx.transactionHash,
             bobAddress,
@@ -99,11 +105,11 @@ async function deployAllContracts() {
 
         // Deploy to Polygon
         console.log('\n=== Deploying to Polygon ===');
-        const polygonDeployment = await deployHTCLContract(polygonWeb3, ENV_VARS.PRIVATE_KEY_1, bobAddress, timelock, hashlock, amount);
+        const polygonDeployment = await deployHTCLContract(polygonWeb3, true, bobAddress, timelock, hashlock, amount);
 
         // Deploy to Sepolia
         console.log('\n=== Deploying to Sepolia ===');
-        const sepoliaDeployment = await deployHTCLContract(sepoliaWeb3, ENV_VARS.PRIVATE_KEY_1, bobAddress, timelock, hashlock, amount);
+        const sepoliaDeployment = await deployHTCLContract(sepoliaWeb3, false, bobAddress, timelock, hashlock, amount);
 
         const deployments = {
             polygon: polygonDeployment,
